@@ -80,20 +80,61 @@ export default function App() {
     }
   }, [input, output, indent])
 
-  // 差异对比：高亮左右两侧不同的行
+  // 去除转义：无可去除时友好提示而非报错
+  const doUnescape = useCallback(() => {
+    const src = output.trim() ? output : input
+    if (!src.trim()) {
+      setStatus({ type: 'error', text: '内容为空' })
+      return
+    }
+    const { text, changed } = J.unescape(src)
+    if (!changed) {
+      setStatus({ type: 'idle', text: '已经无需去除转义' })
+      return
+    }
+    setOutput(text)
+    setRightCollapsed(false)
+    setStatus({ type: 'ok', text: `✓ 去除转义成功 · 输出 ${text.length} 字符` })
+  }, [input, output])
+
+  // 差异对比：先把两侧各自格式化（对齐格式），只比较实际内容差异
   const doDiff = useCallback(() => {
-    const { a, b } = lineDiff(input, output)
-    leftView.current?.dispatch({ effects: setDiffLines.of(a) })
-    rightView.current?.dispatch({ effects: setDiffLines.of(b) })
+    if (!leftView.current || !rightView.current) return
+    // 能解析就格式化；不能解析（如转义文本）则保持原文
+    let a = input
+    let b = output
+    try {
+      a = J.format(input, indent)
+    } catch {
+      /* 保持原文 */
+    }
+    try {
+      b = J.format(output, indent)
+    } catch {
+      /* 保持原文 */
+    }
+    const { a: da, b: db } = lineDiff(a, b)
+    // 同一事务里替换全文 + 设置高亮：装饰基于新文档计算，不会被本次 docChange 清掉
+    leftView.current.dispatch({
+      changes: { from: 0, to: leftView.current.state.doc.length, insert: a },
+      effects: setDiffLines.of(da),
+    })
+    rightView.current.dispatch({
+      changes: { from: 0, to: rightView.current.state.doc.length, insert: b },
+      effects: setDiffLines.of(db),
+    })
     setLeftCollapsed(false)
     setRightCollapsed(false)
-    const total = a.size + b.size
+    const total = da.size + db.size
     if (total === 0) {
-      setStatus({ type: 'ok', text: '✓ 两侧内容完全一致' })
+      setStatus({ type: 'ok', text: '✓ 两侧内容一致（已忽略格式差异）' })
     } else {
-      setStatus({ type: 'ok', text: `已高亮差异：左 ${a.size} 行 / 右 ${b.size} 行（编辑任意一侧自动清除）` })
+      setStatus({
+        type: 'ok',
+        text: `已格式化并高亮差异：左 ${da.size} 行 / 右 ${db.size} 行（编辑任意一侧自动清除）`,
+      })
     }
-  }, [input, output])
+  }, [input, output, indent])
 
   const copyOutput = useCallback(async () => {
     if (!output) return
@@ -117,7 +158,7 @@ export default function App() {
           <PrimaryBtn onClick={() => operate('格式化', (t) => J.format(t, indent))}>格式化</PrimaryBtn>
           <Btn onClick={() => operate('压缩', J.minify)}>压缩</Btn>
           <Btn onClick={() => operate('转义', J.escape)}>转义</Btn>
-          <Btn onClick={() => operate('去除转义', J.unescape)}>去除转义</Btn>
+          <Btn onClick={doUnescape}>去除转义</Btn>
           <Btn onClick={doValidate}>校验</Btn>
           <Btn onClick={doDiff}>差异对比</Btn>
           <span className="flex items-center gap-1">

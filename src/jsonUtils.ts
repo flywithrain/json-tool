@@ -77,19 +77,49 @@ export function escape(text: string): string {
   return s.slice(1, -1)
 }
 
+export interface UnescapeResult {
+  text: string
+  changed: boolean
+}
+
 /**
- * 去转义：把被转义的字符串还原。
- * 兼容两种输入：带外层引号的字符串字面量，或不带引号的纯转义内容。
+ * 去除转义：把被转义的字符串还原。兼容两种输入：
+ *  - 带外层引号的字符串字面量，如 "{\"a\":1}"
+ *  - 不带引号的纯转义内容，如 {\"a\":1}
+ * 若内容本身没有可去除的转义（如普通 JSON），changed 返回 false，不报错。
  */
-export function unescape(text: string): string {
+export function unescape(text: string): UnescapeResult {
   const trimmed = text.trim()
-  // 形如 "....." 的完整字符串字面量
-  if (trimmed.startsWith('"') && trimmed.endsWith('"')) {
-    const parsed = JSON.parse(trimmed)
-    if (typeof parsed === 'string') return parsed
+  if (!trimmed) return { text, changed: false }
+
+  // 情况1：完整的字符串字面量 "...."
+  if (trimmed.length >= 2 && trimmed.startsWith('"') && trimmed.endsWith('"')) {
+    try {
+      const parsed = JSON.parse(trimmed)
+      if (typeof parsed === 'string') return { text: parsed, changed: true }
+    } catch {
+      // 继续尝试下一种
+    }
   }
-  // 当作不带引号的转义内容处理
-  return JSON.parse('"' + trimmed.replace(/\n/g, '\\n') + '"')
+
+  // 情况2：不带引号的裸转义内容（含 \" \\ \n 等合法转义序列）
+  if (/\\["\\/bfnrtu]/.test(trimmed)) {
+    try {
+      const wrapped =
+        '"' +
+        trimmed.replace(/\r/g, '\\r').replace(/\n/g, '\\n').replace(/\t/g, '\\t') +
+        '"'
+      const parsed = JSON.parse(wrapped)
+      if (typeof parsed === 'string' && parsed !== trimmed) {
+        return { text: parsed, changed: true }
+      }
+    } catch {
+      // 无法作为转义内容解析
+    }
+  }
+
+  // 没有可去除的转义
+  return { text, changed: false }
 }
 
 function looksLikeJsonContainer(s: string): boolean {
