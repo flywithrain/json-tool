@@ -264,15 +264,15 @@ export default function App() {
         <Btn onClick={doDiff}>差异对比</Btn>
         <div className="ml-auto flex items-center gap-4 text-sm">
           <div className="flex items-center gap-1.5 text-slate-500">
-            <span>缩进</span>
-            <Segmented
+            <span className="text-xs">缩进</span>
+            <select
               value={indent}
-              onChange={setIndent}
-              options={[
-                { label: '2 空格', value: 2 },
-                { label: '4 空格', value: 4 },
-              ]}
-            />
+              onChange={(e) => setIndent(Number(e.target.value))}
+              className="rounded border border-slate-200 bg-white px-1 py-0.5 text-xs text-slate-600 outline-none transition hover:border-slate-300 focus:border-indigo-300 focus:ring-1 focus:ring-indigo-200"
+            >
+              <option value={2}>2</option>
+              <option value={4}>4</option>
+            </select>
           </div>
           <Switch checked={wrap} onChange={setWrap} label="自动换行" />
         </div>
@@ -289,13 +289,13 @@ export default function App() {
           count={input.length}
           toolbar={
             <>
-              <ToolBtn primary onClick={() => leftOperate('格式化', (t) => J.format(t, indent))}>格式化</ToolBtn>
+              <ToolBtn onClick={() => leftOperate('格式化', (t) => J.format(t, indent))}>格式化</ToolBtn>
               <ToolBtn onClick={() => leftOperate('压缩', J.minify)}>压缩</ToolBtn>
               <ToolBtn onClick={() => leftOperate('转义', J.escape)}>转义</ToolBtn>
               <ToolBtn onClick={leftUnescape}>去除转义</ToolBtn>
               <ToolBtn onClick={leftValidate}>校验</ToolBtn>
               <span className="mx-0.5 h-3.5 w-px shrink-0 bg-indigo-100" />
-              <ToolBtn primary onClick={leftForceUnescape} helpText={helpText}>强制去除转义</ToolBtn>
+              <ToolBtn onClick={leftForceUnescape} helpText={helpText}>强制去除转义</ToolBtn>
               <span className="mx-0.5 h-3.5 w-px shrink-0 bg-indigo-100" />
               <ToolBtn onClick={() => leftOperate('URL 解码', J.urlDecode)}>URL Decode</ToolBtn>
               <ToolBtn onClick={() => leftOperate('URL 编码', J.urlEncode)}>URL Encode</ToolBtn>
@@ -325,13 +325,13 @@ export default function App() {
           count={output.length}
           toolbar={
             <>
-              <ToolBtn primary onClick={() => rightOperate('格式化', (t) => J.format(t, indent))}>格式化</ToolBtn>
+              <ToolBtn onClick={() => rightOperate('格式化', (t) => J.format(t, indent))}>格式化</ToolBtn>
               <ToolBtn onClick={() => rightOperate('压缩', J.minify)}>压缩</ToolBtn>
               <ToolBtn onClick={() => rightOperate('转义', J.escape)}>转义</ToolBtn>
               <ToolBtn onClick={rightUnescape}>去除转义</ToolBtn>
               <ToolBtn onClick={rightValidate}>校验</ToolBtn>
               <span className="mx-0.5 h-3.5 w-px shrink-0 bg-indigo-100" />
-              <ToolBtn primary onClick={rightForceUnescape} helpText={helpText}>强制去除转义</ToolBtn>
+              <ToolBtn onClick={rightForceUnescape} helpText={helpText}>强制去除转义</ToolBtn>
               <span className="mx-0.5 h-3.5 w-px shrink-0 bg-indigo-100" />
               <ToolBtn onClick={() => rightOperate('URL 解码', J.urlDecode)}>URL Decode</ToolBtn>
               <ToolBtn onClick={() => rightOperate('URL 编码', J.urlEncode)}>URL Encode</ToolBtn>
@@ -387,16 +387,27 @@ function ScrollableToolbar({ children }: { children: React.ReactNode }) {
   return (
     <div className="relative min-w-0 flex-1">
       {!atStart && (
-        <div className="pointer-events-none absolute left-0 top-0 bottom-0 z-10 w-6 bg-gradient-to-r from-slate-50 to-transparent" />
+        <button
+          onClick={() => ref.current?.scrollBy({ left: -150, behavior: 'smooth' })}
+          className="absolute left-0 top-0 bottom-0 z-10 flex w-6 cursor-pointer items-center justify-center bg-gradient-to-r from-slate-50 via-slate-50/80 to-transparent text-slate-400 transition hover:text-slate-600"
+        >
+          ‹
+        </button>
       )}
       <div
         ref={ref}
-        className="flex flex-nowrap items-center gap-1.5 overflow-x-auto px-3 py-1.5 scrollbar-hide"
+        className="flex flex-nowrap items-center gap-1.5 overflow-x-auto scrollbar-hide"
+        style={{ paddingLeft: atStart ? 12 : 28, paddingRight: atEnd ? 12 : 28 }}
       >
         {children}
       </div>
       {!atEnd && (
-        <div className="pointer-events-none absolute right-0 top-0 bottom-0 z-10 w-6 bg-gradient-to-l from-slate-50 to-transparent" />
+        <button
+          onClick={() => ref.current?.scrollBy({ left: 150, behavior: 'smooth' })}
+          className="absolute right-0 top-0 bottom-0 z-10 flex w-6 cursor-pointer items-center justify-center bg-gradient-to-l from-slate-50 via-slate-50/80 to-transparent text-slate-400 transition hover:text-slate-600"
+        >
+          ›
+        </button>
       )}
     </div>
   )
@@ -421,21 +432,20 @@ function Pane({
 }) {
   if (collapsed) {
     return (
-      <section className="flex w-9 shrink-0 items-center justify-center rounded-lg border border-slate-200 bg-white">
+      <div className="relative flex w-5 shrink-0 items-center justify-center">
         <button
           onClick={onToggle}
           title="展开"
-          className="flex h-full w-full items-center justify-center text-slate-400 transition hover:bg-slate-50 hover:text-slate-600"
+          className="absolute flex h-7 w-5 items-center justify-center rounded bg-white text-[10px] text-slate-400 shadow-sm ring-1 ring-slate-200 transition hover:bg-indigo-50 hover:text-indigo-500 hover:ring-indigo-200"
         >
-          {side === 'left' ? '▶' : '◀'}
+          {side === 'left' ? '›' : '‹'}
         </button>
-      </section>
+      </div>
     )
   }
   return (
-    <section className="flex min-w-0 flex-1 overflow-hidden rounded-lg border border-slate-200 bg-white">
-      {/* 主内容区 */}
-      <div className="flex min-w-0 flex-1 flex-col">
+    <div className="relative flex min-w-0 flex-1">
+      <section className="flex min-w-0 flex-1 flex-col overflow-hidden rounded-lg border border-slate-200 bg-white">
         {/* 顶部工具栏 */}
         <div className="flex items-center border-b border-slate-100 bg-slate-50">
           <ScrollableToolbar>{toolbar}</ScrollableToolbar>
@@ -460,16 +470,17 @@ function Pane({
           </span>
           <span className="shrink-0 tabular-nums text-slate-400">{count.toLocaleString()} chars</span>
         </div>
-      </div>
-      {/* 侧边折叠按钮：垂直居中 */}
+      </section>
+      {/* 折叠标签：小便利贴风格，浮在边缘中间 */}
       <button
         onClick={onToggle}
         title="收起"
-        className="flex w-5 shrink-0 items-center justify-center border-l border-slate-100 text-slate-300 transition hover:bg-indigo-50 hover:text-indigo-400"
+        className="absolute top-1/2 z-10 flex h-7 w-4 -translate-y-1/2 items-center justify-center rounded bg-white text-[10px] text-slate-400 shadow-sm ring-1 ring-slate-200 transition hover:bg-indigo-50 hover:text-indigo-500 hover:ring-indigo-200"
+        style={side === 'left' ? { right: -8 } : { left: -8 }}
       >
-        {side === 'left' ? '◀' : '▶'}
+        {side === 'left' ? '‹' : '›'}
       </button>
-    </section>
+    </div>
   )
 }
 
@@ -488,23 +499,19 @@ function Btn({ onClick, children }: { onClick: () => void; children: React.React
 function ToolBtn({
   onClick,
   disabled,
-  primary,
   helpText,
   children,
 }: {
   onClick: () => void
   disabled?: boolean
-  primary?: boolean
   helpText?: string
   children: React.ReactNode
 }) {
-  const base =
-    'relative rounded px-2 py-0.5 text-xs font-medium transition disabled:cursor-not-allowed disabled:opacity-40 shrink-0'
-  const style = primary
-    ? 'bg-indigo-500 text-white hover:bg-indigo-600 active:bg-indigo-700'
-    : 'bg-white text-slate-600 border border-slate-200 hover:border-indigo-300 hover:text-indigo-600 hover:bg-indigo-50/50 active:bg-indigo-100/50'
+  const cls =
+    'relative rounded px-2 py-0.5 text-xs font-medium transition disabled:cursor-not-allowed disabled:opacity-40 shrink-0 ' +
+    'bg-white text-slate-600 border border-slate-200 hover:border-indigo-300 hover:text-indigo-600 hover:bg-indigo-50/50 active:bg-indigo-100/50'
   return (
-    <button onClick={onClick} disabled={disabled} className={`${base} ${style} group`}>
+    <button onClick={onClick} disabled={disabled} className={`${cls} group`}>
       {children}
       {helpText && (
         <span
