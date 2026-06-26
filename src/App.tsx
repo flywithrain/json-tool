@@ -35,10 +35,10 @@ export default function App() {
       try {
         const result = fn(input)
         setInput(result)
-        setLeftStatus({ type: 'ok', text: `✓ ${label}成功 · ${result.length} 字符` })
+        setLeftStatus({ type: 'ok', text: `${label}成功 · ${result.length} 字符` })
       } catch (e) {
         const msg = e instanceof Error ? e.message : String(e)
-        setLeftStatus({ type: 'error', text: `✗ ${label}失败：${msg}` })
+        setLeftStatus({ type: 'error', text: `${label}失败：${msg}` })
       }
     },
     [input],
@@ -50,7 +50,7 @@ export default function App() {
       setLeftStatus({ type: 'ok', text: r.message })
     } else {
       const pos = r.line ? `（第 ${r.line} 行 第 ${r.column} 列）` : ''
-      setLeftStatus({ type: 'error', text: `✗ ${r.message} ${pos}` })
+      setLeftStatus({ type: 'error', text: `${r.message} ${pos}` })
     }
   }, [input])
 
@@ -65,7 +65,7 @@ export default function App() {
       return
     }
     setInput(text)
-    setLeftStatus({ type: 'ok', text: `✓ 去除转义成功 · ${text.length} 字符` })
+    setLeftStatus({ type: 'ok', text: `去除转义成功 · ${text.length} 字符` })
   }, [input])
 
   const leftForceUnescape = useCallback(() => {
@@ -80,10 +80,10 @@ export default function App() {
         return
       }
       setInput(text)
-      setLeftStatus({ type: 'ok', text: `✓ 强制去除转义成功 · ${text.length} 字符` })
+      setLeftStatus({ type: 'ok', text: `强制去除转义成功 · ${text.length} 字符` })
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e)
-      setLeftStatus({ type: 'error', text: `✗ 强制去除转义失败：${msg}` })
+      setLeftStatus({ type: 'error', text: `强制去除转义失败：${msg}` })
     }
   }, [input, indent])
 
@@ -98,10 +98,10 @@ export default function App() {
       try {
         const result = fn(output)
         setOutput(result)
-        setRightStatus({ type: 'ok', text: `✓ ${label}成功 · ${result.length} 字符` })
+        setRightStatus({ type: 'ok', text: `${label}成功 · ${result.length} 字符` })
       } catch (e) {
         const msg = e instanceof Error ? e.message : String(e)
-        setRightStatus({ type: 'error', text: `✗ ${label}失败：${msg}` })
+        setRightStatus({ type: 'error', text: `${label}失败：${msg}` })
       }
     },
     [output],
@@ -113,7 +113,7 @@ export default function App() {
       setRightStatus({ type: 'ok', text: r.message })
     } else {
       const pos = r.line ? `（第 ${r.line} 行 第 ${r.column} 列）` : ''
-      setRightStatus({ type: 'error', text: `✗ ${r.message} ${pos}` })
+      setRightStatus({ type: 'error', text: `${r.message} ${pos}` })
     }
   }, [output])
 
@@ -128,7 +128,7 @@ export default function App() {
       return
     }
     setOutput(text)
-    setRightStatus({ type: 'ok', text: `✓ 去除转义成功 · ${text.length} 字符` })
+    setRightStatus({ type: 'ok', text: `去除转义成功 · ${text.length} 字符` })
   }, [output])
 
   const rightForceUnescape = useCallback(() => {
@@ -143,10 +143,10 @@ export default function App() {
         return
       }
       setOutput(text)
-      setRightStatus({ type: 'ok', text: `✓ 强制去除转义成功 · ${text.length} 字符` })
+      setRightStatus({ type: 'ok', text: `强制去除转义成功 · ${text.length} 字符` })
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e)
-      setRightStatus({ type: 'error', text: `✗ 强制去除转义失败：${msg}` })
+      setRightStatus({ type: 'error', text: `强制去除转义失败：${msg}` })
     }
   }, [output, indent])
 
@@ -179,7 +179,7 @@ export default function App() {
     setRightCollapsed(false)
     const total = da.size + db.size
     if (total === 0) {
-      const msg = '✓ 两侧内容一致（已忽略格式差异）'
+      const msg = '两侧内容一致（已忽略格式差异）'
       setLeftStatus({ type: 'ok', text: msg })
       setRightStatus({ type: 'ok', text: msg })
     } else {
@@ -195,16 +195,20 @@ export default function App() {
     if (!output) return
     try {
       await navigator.clipboard.writeText(output)
-      setRightStatus({ type: 'ok', text: '✓ 已复制到剪贴板' })
+      setRightStatus({ type: 'ok', text: '已复制到剪贴板' })
     } catch {
-      setRightStatus({ type: 'error', text: '✗ 复制失败，请手动选择' })
+      setRightStatus({ type: 'error', text: '复制失败，请手动选择' })
     }
   }, [output])
 
   return (
     <div className="flex h-full flex-col bg-slate-100 text-slate-800">
-      {/* 顶部栏：差异对比 + 缩进 + 自动换行 */}
+      {/* 顶部栏：标题 + 差异对比 + 缩进 + 自动换行 */}
       <header className="flex items-center gap-4 border-b border-slate-200 bg-white px-4 py-2 shadow-sm">
+        <h1 className="mr-2 flex items-center gap-2 text-base font-semibold text-slate-900">
+          <span className="text-blue-600">{'{ }'}</span> JSON 工具
+        </h1>
+
         <Btn onClick={doDiff}>差异对比</Btn>
         <div className="ml-auto flex items-center gap-4 text-sm">
           <div className="flex items-center gap-1.5 text-slate-500">
@@ -233,15 +237,16 @@ export default function App() {
           count={input.length}
           toolbar={
             <>
-              <PrimaryBtn onClick={() => leftOperate('格式化', (t) => J.format(t, indent))}>
+              <ToolBtn primary onClick={() => leftOperate('格式化', (t) => J.format(t, indent))}>
                 格式化
-              </PrimaryBtn>
-              <Btn onClick={() => leftOperate('压缩', J.minify)}>压缩</Btn>
-              <Btn onClick={() => leftOperate('转义', J.escape)}>转义</Btn>
-              <Btn onClick={leftUnescape}>去除转义</Btn>
-              <Btn onClick={leftValidate}>校验</Btn>
-              <span className="flex items-center gap-1">
-                <PrimaryBtn onClick={leftForceUnescape}>强制去除转义</PrimaryBtn>
+              </ToolBtn>
+              <ToolBtn onClick={() => leftOperate('压缩', J.minify)}>压缩</ToolBtn>
+              <ToolBtn onClick={() => leftOperate('转义', J.escape)}>转义</ToolBtn>
+              <ToolBtn onClick={leftUnescape}>去除转义</ToolBtn>
+              <ToolBtn onClick={leftValidate}>校验</ToolBtn>
+              <span className="mx-0.5 h-3.5 w-px bg-slate-200" />
+              <span className="flex items-center gap-0.5">
+                <ToolBtn primary onClick={leftForceUnescape}>强制去除转义</ToolBtn>
                 <Help text="针对字符串值：若引号内的内容本身是 JSON（对象/数组），则去掉这层引号并解析为真正的结构。多层嵌套时，每点击一次去除一层；没有可去除的内容时会提示「已经无需去除转义」。" />
               </span>
             </>
@@ -269,21 +274,22 @@ export default function App() {
           count={output.length}
           toolbar={
             <>
-              <PrimaryBtn onClick={() => rightOperate('格式化', (t) => J.format(t, indent))}>
+              <ToolBtn primary onClick={() => rightOperate('格式化', (t) => J.format(t, indent))}>
                 格式化
-              </PrimaryBtn>
-              <Btn onClick={() => rightOperate('压缩', J.minify)}>压缩</Btn>
-              <Btn onClick={() => rightOperate('转义', J.escape)}>转义</Btn>
-              <Btn onClick={rightUnescape}>去除转义</Btn>
-              <Btn onClick={rightValidate}>校验</Btn>
-              <span className="flex items-center gap-1">
-                <PrimaryBtn onClick={rightForceUnescape}>强制去除转义</PrimaryBtn>
+              </ToolBtn>
+              <ToolBtn onClick={() => rightOperate('压缩', J.minify)}>压缩</ToolBtn>
+              <ToolBtn onClick={() => rightOperate('转义', J.escape)}>转义</ToolBtn>
+              <ToolBtn onClick={rightUnescape}>去除转义</ToolBtn>
+              <ToolBtn onClick={rightValidate}>校验</ToolBtn>
+              <span className="mx-0.5 h-3.5 w-px bg-slate-200" />
+              <span className="flex items-center gap-0.5">
+                <ToolBtn primary onClick={rightForceUnescape}>强制去除转义</ToolBtn>
                 <Help text="针对字符串值：若引号内的内容本身是 JSON（对象/数组），则去掉这层引号并解析为真正的结构。多层嵌套时，每点击一次去除一层；没有可去除的内容时会提示「已经无需去除转义」。" />
               </span>
-              <span className="mx-1 h-4 w-px bg-slate-200" />
-              <MiniBtn onClick={copyOutput} disabled={!output}>
+              <span className="mx-0.5 h-3.5 w-px bg-slate-200" />
+              <ToolBtn onClick={copyOutput} disabled={!output}>
                 复制
-              </MiniBtn>
+              </ToolBtn>
             </>
           }
         >
@@ -352,20 +358,22 @@ function Pane({
       {/* 编辑器 */}
       <div className="min-h-0 flex-1 overflow-auto">{children}</div>
       {/* 底部信息栏：左侧状态，右侧字符统计 */}
-      <div className="flex items-center justify-between border-t border-slate-100 bg-slate-50 px-3 py-1 text-xs">
+      <div className="flex items-center justify-between border-t border-slate-100 bg-slate-50 px-3 py-1 text-[11px]">
         <span
           className={
-            'truncate ' +
+            'flex items-center gap-1 truncate ' +
             (status.type === 'error'
-              ? 'text-red-600'
+              ? 'text-red-500'
               : status.type === 'ok'
-                ? 'text-emerald-600'
-                : 'text-slate-500')
+                ? 'text-emerald-500'
+                : 'text-slate-400')
           }
         >
-          {status.text}
+          {status.type === 'error' && <span className="font-bold">✗</span>}
+          {status.type === 'ok' && <span className="font-bold">✓</span>}
+          <span className="truncate">{status.text}</span>
         </span>
-        <span className="shrink-0 text-slate-500">{count} 字符</span>
+        <span className="shrink-0 tabular-nums text-slate-400">{count.toLocaleString()} chars</span>
       </div>
     </section>
   )
@@ -382,32 +390,25 @@ function Btn({ onClick, children }: { onClick: () => void; children: React.React
   )
 }
 
-function PrimaryBtn({ onClick, children }: { onClick: () => void; children: React.ReactNode }) {
-  return (
-    <button
-      onClick={onClick}
-      className="rounded-md bg-blue-600 px-3 py-1.5 text-sm font-medium text-white transition hover:bg-blue-700 active:bg-blue-800"
-    >
-      {children}
-    </button>
-  )
-}
-
-function MiniBtn({
+/** 统一的工具栏按钮：小尺寸、紧凑风格 */
+function ToolBtn({
   onClick,
   disabled,
+  primary,
   children,
 }: {
   onClick: () => void
   disabled?: boolean
+  primary?: boolean
   children: React.ReactNode
 }) {
+  const base =
+    'rounded px-2 py-0.5 text-xs font-medium transition disabled:cursor-not-allowed disabled:opacity-40'
+  const style = primary
+    ? 'bg-blue-600 text-white hover:bg-blue-700 active:bg-blue-800'
+    : 'bg-white text-slate-600 border border-slate-200 hover:border-slate-300 hover:bg-slate-50 active:bg-slate-100'
   return (
-    <button
-      onClick={onClick}
-      disabled={disabled}
-      className="rounded border border-slate-300 bg-white px-2 py-0.5 text-xs text-slate-600 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
-    >
+    <button onClick={onClick} disabled={disabled} className={`${base} ${style}`}>
       {children}
     </button>
   )
