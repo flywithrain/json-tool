@@ -9,14 +9,12 @@ type Status = { type: 'idle' | 'ok' | 'error'; text: string }
 export default function App() {
   const [input, setInput] = useState('')
   const [output, setOutput] = useState('')
-  const [status, setStatus] = useState<Status>({
-    type: 'idle',
-    text: '就绪 · 在左侧粘贴 JSON，点击按钮处理（结果写入右侧，可继续叠加操作）',
-  })
+  const [leftStatus, setLeftStatus] = useState<Status>({ type: 'idle', text: '' })
+  const [rightStatus, setRightStatus] = useState<Status>({ type: 'idle', text: '' })
   const [indent, setIndent] = useState(2)
   const [wrap, setWrap] = useState(true)
   const [leftCollapsed, setLeftCollapsed] = useState(false)
-  const [rightCollapsed, setRightCollapsed] = useState(false)
+  const [rightCollapsed, setRightCollapsed] = useState(true)
 
   const leftView = useRef<EditorView | null>(null)
   const rightView = useRef<EditorView | null>(null)
@@ -26,81 +24,136 @@ export default function App() {
     [wrap],
   )
 
-  // 操作源：输出框有内容则基于输出框继续，否则取输入框（仅初始）；结果始终写回输出框
-  const operate = useCallback(
+  // ── 左侧操作：基于左侧内容，结果写回左侧 ──
+
+  const leftOperate = useCallback(
     (label: string, fn: (t: string) => string) => {
-      const src = output.trim() ? output : input
-      if (!src.trim()) {
-        setStatus({ type: 'error', text: '内容为空' })
+      if (!input.trim()) {
+        setLeftStatus({ type: 'error', text: '内容为空' })
         return
       }
       try {
-        const result = fn(src)
-        setOutput(result)
-        setRightCollapsed(false)
-        setStatus({ type: 'ok', text: `✓ ${label}成功 · 输出 ${result.length} 字符` })
+        const result = fn(input)
+        setInput(result)
+        setLeftStatus({ type: 'ok', text: `✓ ${label}成功 · ${result.length} 字符` })
       } catch (e) {
         const msg = e instanceof Error ? e.message : String(e)
-        setStatus({ type: 'error', text: `✗ ${label}失败：${msg}` })
+        setLeftStatus({ type: 'error', text: `✗ ${label}失败：${msg}` })
       }
     },
-    [input, output],
+    [input],
   )
 
-  const doValidate = useCallback(() => {
-    const src = output.trim() ? output : input
-    const r = J.validate(src)
+  const leftValidate = useCallback(() => {
+    const r = J.validate(input)
     if (r.ok) {
-      setStatus({ type: 'ok', text: r.message })
+      setLeftStatus({ type: 'ok', text: r.message })
     } else {
       const pos = r.line ? `（第 ${r.line} 行 第 ${r.column} 列）` : ''
-      setStatus({ type: 'error', text: `✗ ${r.message} ${pos}` })
+      setLeftStatus({ type: 'error', text: `✗ ${r.message} ${pos}` })
     }
-  }, [input, output])
+  }, [input])
 
-  // 强制去除转义：一次去一层；无可去除时友好提示而非报错
-  const doForceUnescape = useCallback(() => {
-    const src = output.trim() ? output : input
-    if (!src.trim()) {
-      setStatus({ type: 'error', text: '内容为空' })
+  const leftUnescape = useCallback(() => {
+    if (!input.trim()) {
+      setLeftStatus({ type: 'error', text: '内容为空' })
+      return
+    }
+    const { text, changed } = J.unescape(input)
+    if (!changed) {
+      setLeftStatus({ type: 'idle', text: '已经无需去除转义' })
+      return
+    }
+    setInput(text)
+    setLeftStatus({ type: 'ok', text: `✓ 去除转义成功 · ${text.length} 字符` })
+  }, [input])
+
+  const leftForceUnescape = useCallback(() => {
+    if (!input.trim()) {
+      setLeftStatus({ type: 'error', text: '内容为空' })
       return
     }
     try {
-      const { text, changed } = J.forceUnescape(src, indent)
+      const { text, changed } = J.forceUnescape(input, indent)
       if (!changed) {
-        setStatus({ type: 'idle', text: '已经无需去除转义' })
+        setLeftStatus({ type: 'idle', text: '已经无需去除转义' })
         return
       }
-      setOutput(text)
-      setRightCollapsed(false)
-      setStatus({ type: 'ok', text: `✓ 强制去除转义成功 · 输出 ${text.length} 字符` })
+      setInput(text)
+      setLeftStatus({ type: 'ok', text: `✓ 强制去除转义成功 · ${text.length} 字符` })
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e)
-      setStatus({ type: 'error', text: `✗ 强制去除转义失败：${msg}` })
+      setLeftStatus({ type: 'error', text: `✗ 强制去除转义失败：${msg}` })
     }
-  }, [input, output, indent])
+  }, [input, indent])
 
-  // 去除转义：无可去除时友好提示而非报错
-  const doUnescape = useCallback(() => {
-    const src = output.trim() ? output : input
-    if (!src.trim()) {
-      setStatus({ type: 'error', text: '内容为空' })
+  // ── 右侧操作：基于右侧内容，结果写回右侧 ──
+
+  const rightOperate = useCallback(
+    (label: string, fn: (t: string) => string) => {
+      if (!output.trim()) {
+        setRightStatus({ type: 'error', text: '内容为空' })
+        return
+      }
+      try {
+        const result = fn(output)
+        setOutput(result)
+        setRightStatus({ type: 'ok', text: `✓ ${label}成功 · ${result.length} 字符` })
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : String(e)
+        setRightStatus({ type: 'error', text: `✗ ${label}失败：${msg}` })
+      }
+    },
+    [output],
+  )
+
+  const rightValidate = useCallback(() => {
+    const r = J.validate(output)
+    if (r.ok) {
+      setRightStatus({ type: 'ok', text: r.message })
+    } else {
+      const pos = r.line ? `（第 ${r.line} 行 第 ${r.column} 列）` : ''
+      setRightStatus({ type: 'error', text: `✗ ${r.message} ${pos}` })
+    }
+  }, [output])
+
+  const rightUnescape = useCallback(() => {
+    if (!output.trim()) {
+      setRightStatus({ type: 'error', text: '内容为空' })
       return
     }
-    const { text, changed } = J.unescape(src)
+    const { text, changed } = J.unescape(output)
     if (!changed) {
-      setStatus({ type: 'idle', text: '已经无需去除转义' })
+      setRightStatus({ type: 'idle', text: '已经无需去除转义' })
       return
     }
     setOutput(text)
-    setRightCollapsed(false)
-    setStatus({ type: 'ok', text: `✓ 去除转义成功 · 输出 ${text.length} 字符` })
-  }, [input, output])
+    setRightStatus({ type: 'ok', text: `✓ 去除转义成功 · ${text.length} 字符` })
+  }, [output])
 
-  // 差异对比：先把两侧各自格式化（对齐格式），只比较实际内容差异
+  const rightForceUnescape = useCallback(() => {
+    if (!output.trim()) {
+      setRightStatus({ type: 'error', text: '内容为空' })
+      return
+    }
+    try {
+      const { text, changed } = J.forceUnescape(output, indent)
+      if (!changed) {
+        setRightStatus({ type: 'idle', text: '已经无需去除转义' })
+        return
+      }
+      setOutput(text)
+      setRightStatus({ type: 'ok', text: `✓ 强制去除转义成功 · ${text.length} 字符` })
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e)
+      setRightStatus({ type: 'error', text: `✗ 强制去除转义失败：${msg}` })
+    }
+  }, [output, indent])
+
+  // ── 差异对比：先把两侧各自格式化，只比较实际内容差异 ──
+
   const doDiff = useCallback(() => {
     if (!leftView.current || !rightView.current) return
-    // 能解析就格式化；不能解析（如转义文本）则保持原文
     let a = input
     let b = output
     try {
@@ -114,7 +167,6 @@ export default function App() {
       /* 保持原文 */
     }
     const { a: da, b: db } = lineDiff(a, b)
-    // 同一事务里替换全文 + 设置高亮：装饰基于新文档计算，不会被本次 docChange 清掉
     leftView.current.dispatch({
       changes: { from: 0, to: leftView.current.state.doc.length, insert: a },
       effects: setDiffLines.of(da),
@@ -127,46 +179,33 @@ export default function App() {
     setRightCollapsed(false)
     const total = da.size + db.size
     if (total === 0) {
-      setStatus({ type: 'ok', text: '✓ 两侧内容一致（已忽略格式差异）' })
+      const msg = '✓ 两侧内容一致（已忽略格式差异）'
+      setLeftStatus({ type: 'ok', text: msg })
+      setRightStatus({ type: 'ok', text: msg })
     } else {
-      setStatus({
-        type: 'ok',
-        text: `已格式化并高亮差异：左 ${da.size} 行 / 右 ${db.size} 行（编辑任意一侧自动清除）`,
-      })
+      const msg = `已格式化并高亮差异：左 ${da.size} 行 / 右 ${db.size} 行（编辑任意一侧自动清除）`
+      setLeftStatus({ type: 'ok', text: msg })
+      setRightStatus({ type: 'ok', text: msg })
     }
   }, [input, output, indent])
+
+  // ── 复制 ──
 
   const copyOutput = useCallback(async () => {
     if (!output) return
     try {
       await navigator.clipboard.writeText(output)
-      setStatus({ type: 'ok', text: '✓ 已复制输出到剪贴板' })
+      setRightStatus({ type: 'ok', text: '✓ 已复制到剪贴板' })
     } catch {
-      setStatus({ type: 'error', text: '✗ 复制失败，请手动选择' })
+      setRightStatus({ type: 'error', text: '✗ 复制失败，请手动选择' })
     }
   }, [output])
 
   return (
     <div className="flex h-full flex-col bg-slate-100 text-slate-800">
-      {/* 顶栏 + 工具栏 */}
-      <header className="flex flex-wrap items-center gap-x-4 gap-y-2 border-b border-slate-200 bg-white px-4 py-2.5 shadow-sm">
-        <h1 className="mr-2 flex items-center gap-2 text-base font-semibold text-slate-900">
-          <span className="text-blue-600">{'{ }'}</span> JSON 工具
-        </h1>
-
-        <div className="flex flex-wrap items-center gap-1.5">
-          <PrimaryBtn onClick={() => operate('格式化', (t) => J.format(t, indent))}>格式化</PrimaryBtn>
-          <Btn onClick={() => operate('压缩', J.minify)}>压缩</Btn>
-          <Btn onClick={() => operate('转义', J.escape)}>转义</Btn>
-          <Btn onClick={doUnescape}>去除转义</Btn>
-          <Btn onClick={doValidate}>校验</Btn>
-          <Btn onClick={doDiff}>差异对比</Btn>
-          <span className="flex items-center gap-1">
-            <PrimaryBtn onClick={doForceUnescape}>强制去除转义</PrimaryBtn>
-            <Help text="针对字符串值：若引号内的内容本身是 JSON（对象/数组），则去掉这层引号并解析为真正的结构。多层嵌套时，每点击一次去除一层；没有可去除的内容时会提示「已经无需去除转义」。" />
-          </span>
-        </div>
-
+      {/* 顶部栏：差异对比 + 缩进 + 自动换行 */}
+      <header className="flex items-center gap-4 border-b border-slate-200 bg-white px-4 py-2 shadow-sm">
+        <Btn onClick={doDiff}>差异对比</Btn>
         <div className="ml-auto flex items-center gap-4 text-sm">
           <div className="flex items-center gap-1.5 text-slate-500">
             <span>缩进</span>
@@ -180,26 +219,33 @@ export default function App() {
             />
           </div>
           <Switch checked={wrap} onChange={setWrap} label="自动换行" />
-          <Btn
-            onClick={() => {
-              setInput('')
-              setOutput('')
-              setStatus({ type: 'idle', text: '已清空' })
-            }}
-          >
-            清空
-          </Btn>
         </div>
       </header>
 
       {/* 双栏编辑器（均可编辑、均可收起） */}
       <main className="flex min-h-0 flex-1 gap-2 p-2">
+        {/* 左侧输入框 */}
         <Pane
           side="left"
-          title="输入（原始）"
-          count={input.length}
           collapsed={leftCollapsed}
           onToggle={() => setLeftCollapsed((c) => !c)}
+          status={leftStatus}
+          count={input.length}
+          toolbar={
+            <>
+              <PrimaryBtn onClick={() => leftOperate('格式化', (t) => J.format(t, indent))}>
+                格式化
+              </PrimaryBtn>
+              <Btn onClick={() => leftOperate('压缩', J.minify)}>压缩</Btn>
+              <Btn onClick={() => leftOperate('转义', J.escape)}>转义</Btn>
+              <Btn onClick={leftUnescape}>去除转义</Btn>
+              <Btn onClick={leftValidate}>校验</Btn>
+              <span className="flex items-center gap-1">
+                <PrimaryBtn onClick={leftForceUnescape}>强制去除转义</PrimaryBtn>
+                <Help text="针对字符串值：若引号内的内容本身是 JSON（对象/数组），则去掉这层引号并解析为真正的结构。多层嵌套时，每点击一次去除一层；没有可去除的内容时会提示「已经无需去除转义」。" />
+              </span>
+            </>
+          }
         >
           <CodeMirror
             value={input}
@@ -214,16 +260,31 @@ export default function App() {
           />
         </Pane>
 
+        {/* 右侧输入框 */}
         <Pane
           side="right"
-          title="输出（工作区）"
-          count={output.length}
           collapsed={rightCollapsed}
           onToggle={() => setRightCollapsed((c) => !c)}
-          actions={
-            <MiniBtn onClick={copyOutput} disabled={!output}>
-              复制
-            </MiniBtn>
+          status={rightStatus}
+          count={output.length}
+          toolbar={
+            <>
+              <PrimaryBtn onClick={() => rightOperate('格式化', (t) => J.format(t, indent))}>
+                格式化
+              </PrimaryBtn>
+              <Btn onClick={() => rightOperate('压缩', J.minify)}>压缩</Btn>
+              <Btn onClick={() => rightOperate('转义', J.escape)}>转义</Btn>
+              <Btn onClick={rightUnescape}>去除转义</Btn>
+              <Btn onClick={rightValidate}>校验</Btn>
+              <span className="flex items-center gap-1">
+                <PrimaryBtn onClick={rightForceUnescape}>强制去除转义</PrimaryBtn>
+                <Help text="针对字符串值：若引号内的内容本身是 JSON（对象/数组），则去掉这层引号并解析为真正的结构。多层嵌套时，每点击一次去除一层；没有可去除的内容时会提示「已经无需去除转义」。" />
+              </span>
+              <span className="mx-1 h-4 w-px bg-slate-200" />
+              <MiniBtn onClick={copyOutput} disabled={!output}>
+                复制
+              </MiniBtn>
+            </>
           }
         >
           <CodeMirror
@@ -239,20 +300,6 @@ export default function App() {
           />
         </Pane>
       </main>
-
-      {/* 状态栏 */}
-      <footer
-        className={
-          'border-t px-4 py-1.5 text-sm ' +
-          (status.type === 'error'
-            ? 'border-red-200 bg-red-50 text-red-700'
-            : status.type === 'ok'
-              ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
-              : 'border-slate-200 bg-white text-slate-500')
-        }
-      >
-        {status.text}
-      </footer>
     </div>
   )
 }
@@ -261,19 +308,19 @@ export default function App() {
 
 function Pane({
   side,
-  title,
-  count,
   collapsed,
   onToggle,
-  actions,
+  status,
+  count,
+  toolbar,
   children,
 }: {
   side: 'left' | 'right'
-  title: string
-  count: number
   collapsed: boolean
   onToggle: () => void
-  actions?: React.ReactNode
+  status: Status
+  count: number
+  toolbar: React.ReactNode
   children: React.ReactNode
 }) {
   if (collapsed) {
@@ -286,29 +333,40 @@ function Pane({
         >
           {side === 'left' ? '»' : '«'}
         </button>
-        <span className="text-xs text-slate-500" style={{ writingMode: 'vertical-rl' }}>
-          {title}（{count}）
-        </span>
       </section>
     )
   }
   return (
     <section className="flex min-w-0 flex-1 flex-col overflow-hidden rounded-lg border border-slate-200 bg-white">
-      <div className="flex items-center justify-between border-b border-slate-100 bg-slate-50 px-3 py-1.5 text-xs text-slate-500">
-        <span className="font-medium text-slate-600">{title}</span>
-        <div className="flex items-center gap-2">
-          <span>{count} 字符</span>
-          {actions}
-          <button
-            onClick={onToggle}
-            title="收起"
-            className="text-slate-400 transition hover:text-slate-700"
-          >
-            {side === 'left' ? '«' : '»'}
-          </button>
-        </div>
+      {/* 顶部工具栏 */}
+      <div className="flex flex-wrap items-center gap-1.5 border-b border-slate-100 bg-slate-50 px-3 py-1.5">
+        {toolbar}
+        <button
+          onClick={onToggle}
+          title="收起"
+          className="ml-auto shrink-0 text-slate-400 transition hover:text-slate-700"
+        >
+          {side === 'left' ? '«' : '»'}
+        </button>
       </div>
+      {/* 编辑器 */}
       <div className="min-h-0 flex-1 overflow-auto">{children}</div>
+      {/* 底部信息栏：左侧状态，右侧字符统计 */}
+      <div className="flex items-center justify-between border-t border-slate-100 bg-slate-50 px-3 py-1 text-xs">
+        <span
+          className={
+            'truncate ' +
+            (status.type === 'error'
+              ? 'text-red-600'
+              : status.type === 'ok'
+                ? 'text-emerald-600'
+                : 'text-slate-500')
+          }
+        >
+          {status.text}
+        </span>
+        <span className="shrink-0 text-slate-500">{count} 字符</span>
+      </div>
     </section>
   )
 }
