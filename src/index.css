@@ -21,6 +21,14 @@ body {
   font-size: 13px;
 }
 
+/* 隐藏滚动条（保留滚动功能） */
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+.scrollbar-hide {
+  scrollbar-width: none;
+}
+
 /* 编辑器空内容提示 */
 .editor-tip {
   padding: 2.5rem 2rem;

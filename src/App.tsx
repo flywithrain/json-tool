@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import CodeMirror, { EditorView } from '@uiw/react-codemirror'
 import { json } from '@codemirror/lang-json'
 import { Decoration, ViewPlugin, WidgetType } from '@codemirror/view'
@@ -48,15 +48,17 @@ function createTipExtension(lines: string[][]) {
     class {
       decorations: DecorationSet
       constructor(view: EditorView) {
-        this.decorations = view.state.doc.length === 0
-          ? Decoration.set([widget.range(0)])
-          : Decoration.set([])
+        this.decorations =
+          view.state.doc.length === 0
+            ? Decoration.set([widget.range(0)])
+            : Decoration.set([])
       }
       update(update: ViewUpdate) {
         if (update.docChanged) {
-          this.decorations = update.view.state.doc.length === 0
-            ? Decoration.set([widget.range(0)])
-            : Decoration.set([])
+          this.decorations =
+            update.view.state.doc.length === 0
+              ? Decoration.set([widget.range(0)])
+              : Decoration.set([])
         }
       }
     },
@@ -64,16 +66,12 @@ function createTipExtension(lines: string[][]) {
   )
 }
 
-const leftTip = createTipExtension([
+const editorTip = createTipExtension([
   ['粘贴 JSON 或任意文本，使用上方工具栏进行处理'],
   [],
-  ['kbd:Ctrl+Z', ' 撤销　', 'kbd:Ctrl+Y', ' 重做　', 'kbd:Ctrl+F', ' 搜索'],
-])
-
-const rightTip = createTipExtension([
-  ['处理结果将显示在此，也可直接编辑或粘贴'],
-  [],
-  ['kbd:Ctrl+Z', ' 撤销　', 'kbd:Ctrl+Y', ' 重做　', 'kbd:Ctrl+F', ' 搜索'],
+  ['kbd:Ctrl+Z', ' 撤销'],
+  ['kbd:Ctrl+Y', ' 重做'],
+  ['kbd:Ctrl+F', ' 搜索'],
 ])
 
 export default function App() {
@@ -220,22 +218,14 @@ export default function App() {
     }
   }, [output, indent])
 
-  // ── 差异对比：先把两侧各自格式化，只比较实际内容差异 ──
+  // ── 差异对比 ──
 
   const doDiff = useCallback(() => {
     if (!leftView.current || !rightView.current) return
     let a = input
     let b = output
-    try {
-      a = J.format(input, indent)
-    } catch {
-      /* 保持原文 */
-    }
-    try {
-      b = J.format(output, indent)
-    } catch {
-      /* 保持原文 */
-    }
+    try { a = J.format(input, indent) } catch { /* 保持原文 */ }
+    try { b = J.format(output, indent) } catch { /* 保持原文 */ }
     const { a: da, b: db } = lineDiff(a, b)
     leftView.current.dispatch({
       changes: { from: 0, to: leftView.current.state.doc.length, insert: a },
@@ -271,6 +261,11 @@ export default function App() {
     }
   }, [output])
 
+  const helpText = '针对字符串值：若引号内的内容本身是 JSON（对象/数组），则去掉这层引号并解析为真正的结构。多层嵌套时，每点击一次去除一层；没有可去除的内容时会提示「已经无需去除转义」。'
+
+  const leftExtensions = useMemo(() => [...extensions, editorTip], [extensions])
+  const rightExtensions = useMemo(() => [...extensions, editorTip], [extensions])
+
   return (
     <div className="flex h-full flex-col bg-slate-100 text-slate-800">
       {/* 顶部栏：标题 + 差异对比 + 缩进 + 自动换行 */}
@@ -278,7 +273,6 @@ export default function App() {
         <h1 className="mr-2 flex items-center gap-2 text-base font-semibold text-slate-900">
           <span className="text-blue-600">{'{ }'}</span> JSON 工具
         </h1>
-
         <Btn onClick={doDiff}>差异对比</Btn>
         <div className="ml-auto flex items-center gap-4 text-sm">
           <div className="flex items-center gap-1.5 text-slate-500">
@@ -296,7 +290,7 @@ export default function App() {
         </div>
       </header>
 
-      {/* 双栏编辑器（均可编辑、均可收起） */}
+      {/* 双栏编辑器 */}
       <main className="flex min-h-0 flex-1 gap-2 p-2">
         {/* 左侧输入框 */}
         <Pane
@@ -307,29 +301,24 @@ export default function App() {
           count={input.length}
           toolbar={
             <>
-              <ToolBtn primary onClick={() => leftOperate('格式化', (t) => J.format(t, indent))}>
-                格式化
-              </ToolBtn>
+              <ToolBtn primary onClick={() => leftOperate('格式化', (t) => J.format(t, indent))}>格式化</ToolBtn>
               <ToolBtn onClick={() => leftOperate('压缩', J.minify)}>压缩</ToolBtn>
               <ToolBtn onClick={() => leftOperate('转义', J.escape)}>转义</ToolBtn>
               <ToolBtn onClick={leftUnescape}>去除转义</ToolBtn>
               <ToolBtn onClick={leftValidate}>校验</ToolBtn>
-              <span className="mx-0.5 h-3.5 w-px bg-slate-200" />
-              <span className="flex items-center gap-0.5">
-                <ToolBtn primary onClick={leftForceUnescape}>强制去除转义</ToolBtn>
-                <Help text="针对字符串值：若引号内的内容本身是 JSON（对象/数组），则去掉这层引号并解析为真正的结构。多层嵌套时，每点击一次去除一层；没有可去除的内容时会提示「已经无需去除转义」。" />
-              </span>
-              <span className="mx-0.5 h-3.5 w-px bg-slate-200" />
-              <ToolBtn onClick={() => leftOperate('URL 编码', J.urlEncode)}>URL Encode</ToolBtn>
+              <span className="mx-0.5 h-3.5 w-px shrink-0 bg-slate-200" />
+              <ToolBtn primary onClick={leftForceUnescape} helpText={helpText}>强制去除转义</ToolBtn>
+              <span className="mx-0.5 h-3.5 w-px shrink-0 bg-slate-200" />
               <ToolBtn onClick={() => leftOperate('URL 解码', J.urlDecode)}>URL Decode</ToolBtn>
-              <ToolBtn onClick={() => leftOperate('Base64 编码', J.base64Encode)}>B64 Encode</ToolBtn>
+              <ToolBtn onClick={() => leftOperate('URL 编码', J.urlEncode)}>URL Encode</ToolBtn>
               <ToolBtn onClick={() => leftOperate('Base64 解码', J.base64Decode)}>B64 Decode</ToolBtn>
+              <ToolBtn onClick={() => leftOperate('Base64 编码', J.base64Encode)}>B64 Encode</ToolBtn>
             </>
           }
         >
           <CodeMirror
             value={input}
-            extensions={useMemo(() => [...extensions, leftTip], [extensions])}
+            extensions={leftExtensions}
             onChange={setInput}
             onCreateEditor={(v) => (leftView.current = v)}
             theme="light"
@@ -348,33 +337,26 @@ export default function App() {
           count={output.length}
           toolbar={
             <>
-              <ToolBtn primary onClick={() => rightOperate('格式化', (t) => J.format(t, indent))}>
-                格式化
-              </ToolBtn>
+              <ToolBtn primary onClick={() => rightOperate('格式化', (t) => J.format(t, indent))}>格式化</ToolBtn>
               <ToolBtn onClick={() => rightOperate('压缩', J.minify)}>压缩</ToolBtn>
               <ToolBtn onClick={() => rightOperate('转义', J.escape)}>转义</ToolBtn>
               <ToolBtn onClick={rightUnescape}>去除转义</ToolBtn>
               <ToolBtn onClick={rightValidate}>校验</ToolBtn>
-              <span className="mx-0.5 h-3.5 w-px bg-slate-200" />
-              <span className="flex items-center gap-0.5">
-                <ToolBtn primary onClick={rightForceUnescape}>强制去除转义</ToolBtn>
-                <Help text="针对字符串值：若引号内的内容本身是 JSON（对象/数组），则去掉这层引号并解析为真正的结构。多层嵌套时，每点击一次去除一层；没有可去除的内容时会提示「已经无需去除转义」。" />
-              </span>
-              <span className="mx-0.5 h-3.5 w-px bg-slate-200" />
-              <ToolBtn onClick={() => rightOperate('URL 编码', J.urlEncode)}>URL Encode</ToolBtn>
+              <span className="mx-0.5 h-3.5 w-px shrink-0 bg-slate-200" />
+              <ToolBtn primary onClick={rightForceUnescape} helpText={helpText}>强制去除转义</ToolBtn>
+              <span className="mx-0.5 h-3.5 w-px shrink-0 bg-slate-200" />
               <ToolBtn onClick={() => rightOperate('URL 解码', J.urlDecode)}>URL Decode</ToolBtn>
-              <ToolBtn onClick={() => rightOperate('Base64 编码', J.base64Encode)}>B64 Encode</ToolBtn>
+              <ToolBtn onClick={() => rightOperate('URL 编码', J.urlEncode)}>URL Encode</ToolBtn>
               <ToolBtn onClick={() => rightOperate('Base64 解码', J.base64Decode)}>B64 Decode</ToolBtn>
-              <span className="mx-0.5 h-3.5 w-px bg-slate-200" />
-              <ToolBtn onClick={copyOutput} disabled={!output}>
-                复制
-              </ToolBtn>
+              <ToolBtn onClick={() => rightOperate('Base64 编码', J.base64Encode)}>B64 Encode</ToolBtn>
+              <span className="mx-0.5 h-3.5 w-px shrink-0 bg-slate-200" />
+              <ToolBtn onClick={copyOutput} disabled={!output}>复制</ToolBtn>
             </>
           }
         >
           <CodeMirror
             value={output}
-            extensions={useMemo(() => [...extensions, rightTip], [extensions])}
+            extensions={rightExtensions}
             onChange={setOutput}
             onCreateEditor={(v) => (rightView.current = v)}
             theme="light"
@@ -389,6 +371,50 @@ export default function App() {
 }
 
 /* ---------- 小组件 ---------- */
+
+/** 可水平滚动的工具栏，两端带渐变指示 */
+function ScrollableToolbar({ children }: { children: React.ReactNode }) {
+  const ref = useRef<HTMLDivElement>(null)
+  const [atStart, setAtStart] = useState(true)
+  const [atEnd, setAtEnd] = useState(true)
+
+  const check = useCallback(() => {
+    const el = ref.current
+    if (!el) return
+    setAtStart(el.scrollLeft <= 0)
+    setAtEnd(el.scrollLeft >= el.scrollWidth - el.clientWidth - 1)
+  }, [])
+
+  useEffect(() => {
+    const el = ref.current
+    if (!el) return
+    check()
+    el.addEventListener('scroll', check, { passive: true })
+    const ro = new ResizeObserver(check)
+    ro.observe(el)
+    return () => {
+      el.removeEventListener('scroll', check)
+      ro.disconnect()
+    }
+  }, [check])
+
+  return (
+    <div className="relative min-w-0 flex-1">
+      {!atStart && (
+        <div className="pointer-events-none absolute left-0 top-0 bottom-0 z-10 w-6 bg-gradient-to-r from-slate-50 to-transparent" />
+      )}
+      <div
+        ref={ref}
+        className="flex flex-nowrap items-center gap-1.5 overflow-x-auto px-3 py-1.5 scrollbar-hide"
+      >
+        {children}
+      </div>
+      {!atEnd && (
+        <div className="pointer-events-none absolute right-0 top-0 bottom-0 z-10 w-6 bg-gradient-to-l from-slate-50 to-transparent" />
+      )}
+    </div>
+  )
+}
 
 function Pane({
   side,
@@ -422,20 +448,20 @@ function Pane({
   }
   return (
     <section className="flex min-w-0 flex-1 flex-col overflow-hidden rounded-lg border border-slate-200 bg-white">
-      {/* 顶部工具栏 */}
-      <div className="flex flex-wrap items-center gap-1.5 border-b border-slate-100 bg-slate-50 px-3 py-1.5">
-        {toolbar}
+      {/* 顶部工具栏：可滚动 + 收起按钮 */}
+      <div className="flex items-center border-b border-slate-100 bg-slate-50">
+        <ScrollableToolbar>{toolbar}</ScrollableToolbar>
         <button
           onClick={onToggle}
           title="收起"
-          className="ml-auto shrink-0 text-slate-400 transition hover:text-slate-700"
+          className="shrink-0 px-2 py-1.5 text-slate-400 transition hover:text-slate-700"
         >
           {side === 'left' ? '«' : '»'}
         </button>
       </div>
       {/* 编辑器 */}
       <div className="min-h-0 flex-1 overflow-auto">{children}</div>
-      {/* 底部信息栏：左侧状态，右侧字符统计 */}
+      {/* 底部信息栏 */}
       <div className="flex items-center justify-between border-t border-slate-100 bg-slate-50 px-3 py-1 text-[11px]">
         <span
           className={
@@ -468,41 +494,37 @@ function Btn({ onClick, children }: { onClick: () => void; children: React.React
   )
 }
 
-/** 统一的工具栏按钮：小尺寸、紧凑风格 */
+/** 统一的工具栏按钮：小尺寸、紧凑风格，可选右上角帮助徽标 */
 function ToolBtn({
   onClick,
   disabled,
   primary,
+  helpText,
   children,
 }: {
   onClick: () => void
   disabled?: boolean
   primary?: boolean
+  helpText?: string
   children: React.ReactNode
 }) {
   const base =
-    'rounded px-2 py-0.5 text-xs font-medium transition disabled:cursor-not-allowed disabled:opacity-40'
+    'relative rounded px-2 py-0.5 text-xs font-medium transition disabled:cursor-not-allowed disabled:opacity-40 shrink-0'
   const style = primary
     ? 'bg-blue-600 text-white hover:bg-blue-700 active:bg-blue-800'
     : 'bg-white text-slate-600 border border-slate-200 hover:border-slate-300 hover:bg-slate-50 active:bg-slate-100'
   return (
-    <button onClick={onClick} disabled={disabled} className={`${base} ${style}`}>
+    <button onClick={onClick} disabled={disabled} className={`${base} ${style} group`}>
       {children}
+      {helpText && (
+        <span
+          className="absolute -right-1 -top-1 flex h-3.5 w-3.5 cursor-help items-center justify-center rounded-full bg-slate-200 text-[9px] leading-none text-slate-500 opacity-60 transition group-hover:opacity-100 group-hover:bg-blue-100 group-hover:text-blue-600"
+          title={helpText}
+        >
+          ?
+        </span>
+      )}
     </button>
-  )
-}
-
-/** 悬浮帮助图标 */
-function Help({ text }: { text: string }) {
-  return (
-    <span className="group relative inline-flex">
-      <span className="flex h-5 w-5 cursor-help items-center justify-center rounded-full border border-slate-300 text-xs text-slate-400 transition group-hover:border-blue-400 group-hover:text-blue-500">
-        ?
-      </span>
-      <span className="invisible absolute left-1/2 top-full z-10 mt-2 w-64 -translate-x-1/2 rounded-md bg-slate-800 px-3 py-2 text-xs leading-relaxed text-white opacity-0 shadow-lg transition group-hover:visible group-hover:opacity-100">
-        {text}
-      </span>
-    </span>
   )
 }
 
