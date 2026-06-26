@@ -37,10 +37,12 @@ body {
   line-height: 1.8;
   pointer-events: none;
   user-select: none;
+  text-align: center;
 }
 .editor-tip .tip-row {
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: 0.25rem;
 }
 .editor-tip .tip-kbd {

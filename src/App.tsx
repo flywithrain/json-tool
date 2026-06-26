@@ -249,18 +249,6 @@ export default function App() {
     }
   }, [input, output, indent])
 
-  // ── 复制 ──
-
-  const copyOutput = useCallback(async () => {
-    if (!output) return
-    try {
-      await navigator.clipboard.writeText(output)
-      setRightStatus({ type: 'ok', text: '已复制到剪贴板' })
-    } catch {
-      setRightStatus({ type: 'error', text: '复制失败，请手动选择' })
-    }
-  }, [output])
-
   const helpText = '针对字符串值：若引号内的内容本身是 JSON（对象/数组），则去掉这层引号并解析为真正的结构。多层嵌套时，每点击一次去除一层；没有可去除的内容时会提示「已经无需去除转义」。'
 
   const leftExtensions = useMemo(() => [...extensions, editorTip], [extensions])
@@ -306,9 +294,9 @@ export default function App() {
               <ToolBtn onClick={() => leftOperate('转义', J.escape)}>转义</ToolBtn>
               <ToolBtn onClick={leftUnescape}>去除转义</ToolBtn>
               <ToolBtn onClick={leftValidate}>校验</ToolBtn>
-              <span className="mx-0.5 h-3.5 w-px shrink-0 bg-slate-200" />
+              <span className="mx-0.5 h-3.5 w-px shrink-0 bg-indigo-100" />
               <ToolBtn primary onClick={leftForceUnescape} helpText={helpText}>强制去除转义</ToolBtn>
-              <span className="mx-0.5 h-3.5 w-px shrink-0 bg-slate-200" />
+              <span className="mx-0.5 h-3.5 w-px shrink-0 bg-indigo-100" />
               <ToolBtn onClick={() => leftOperate('URL 解码', J.urlDecode)}>URL Decode</ToolBtn>
               <ToolBtn onClick={() => leftOperate('URL 编码', J.urlEncode)}>URL Encode</ToolBtn>
               <ToolBtn onClick={() => leftOperate('Base64 解码', J.base64Decode)}>B64 Decode</ToolBtn>
@@ -342,15 +330,13 @@ export default function App() {
               <ToolBtn onClick={() => rightOperate('转义', J.escape)}>转义</ToolBtn>
               <ToolBtn onClick={rightUnescape}>去除转义</ToolBtn>
               <ToolBtn onClick={rightValidate}>校验</ToolBtn>
-              <span className="mx-0.5 h-3.5 w-px shrink-0 bg-slate-200" />
+              <span className="mx-0.5 h-3.5 w-px shrink-0 bg-indigo-100" />
               <ToolBtn primary onClick={rightForceUnescape} helpText={helpText}>强制去除转义</ToolBtn>
-              <span className="mx-0.5 h-3.5 w-px shrink-0 bg-slate-200" />
+              <span className="mx-0.5 h-3.5 w-px shrink-0 bg-indigo-100" />
               <ToolBtn onClick={() => rightOperate('URL 解码', J.urlDecode)}>URL Decode</ToolBtn>
               <ToolBtn onClick={() => rightOperate('URL 编码', J.urlEncode)}>URL Encode</ToolBtn>
               <ToolBtn onClick={() => rightOperate('Base64 解码', J.base64Decode)}>B64 Decode</ToolBtn>
               <ToolBtn onClick={() => rightOperate('Base64 编码', J.base64Encode)}>B64 Encode</ToolBtn>
-              <span className="mx-0.5 h-3.5 w-px shrink-0 bg-slate-200" />
-              <ToolBtn onClick={copyOutput} disabled={!output}>复制</ToolBtn>
             </>
           }
         >
@@ -435,50 +421,54 @@ function Pane({
 }) {
   if (collapsed) {
     return (
-      <section className="flex w-9 shrink-0 flex-col items-center gap-2 rounded-lg border border-slate-200 bg-white py-2">
+      <section className="flex w-9 shrink-0 items-center justify-center rounded-lg border border-slate-200 bg-white">
         <button
           onClick={onToggle}
           title="展开"
-          className="text-slate-400 transition hover:text-slate-700"
+          className="flex h-full w-full items-center justify-center text-slate-400 transition hover:bg-slate-50 hover:text-slate-600"
         >
-          {side === 'left' ? '»' : '«'}
+          {side === 'left' ? '▶' : '◀'}
         </button>
       </section>
     )
   }
   return (
-    <section className="flex min-w-0 flex-1 flex-col overflow-hidden rounded-lg border border-slate-200 bg-white">
-      {/* 顶部工具栏：可滚动 + 收起按钮 */}
-      <div className="flex items-center border-b border-slate-100 bg-slate-50">
-        <ScrollableToolbar>{toolbar}</ScrollableToolbar>
-        <button
-          onClick={onToggle}
-          title="收起"
-          className="shrink-0 px-2 py-1.5 text-slate-400 transition hover:text-slate-700"
-        >
-          {side === 'left' ? '«' : '»'}
-        </button>
+    <section className="flex min-w-0 flex-1 overflow-hidden rounded-lg border border-slate-200 bg-white">
+      {/* 主内容区 */}
+      <div className="flex min-w-0 flex-1 flex-col">
+        {/* 顶部工具栏 */}
+        <div className="flex items-center border-b border-slate-100 bg-slate-50">
+          <ScrollableToolbar>{toolbar}</ScrollableToolbar>
+        </div>
+        {/* 编辑器 */}
+        <div className="min-h-0 flex-1 overflow-auto">{children}</div>
+        {/* 底部信息栏 */}
+        <div className="flex items-center justify-between border-t border-slate-100 bg-slate-50 px-3 py-1 text-[11px]">
+          <span
+            className={
+              'flex items-center gap-1 truncate ' +
+              (status.type === 'error'
+                ? 'text-red-500'
+                : status.type === 'ok'
+                  ? 'text-emerald-500'
+                  : 'text-slate-400')
+            }
+          >
+            {status.type === 'error' && <span className="font-bold">✗</span>}
+            {status.type === 'ok' && <span className="font-bold">✓</span>}
+            <span className="truncate">{status.text}</span>
+          </span>
+          <span className="shrink-0 tabular-nums text-slate-400">{count.toLocaleString()} chars</span>
+        </div>
       </div>
-      {/* 编辑器 */}
-      <div className="min-h-0 flex-1 overflow-auto">{children}</div>
-      {/* 底部信息栏 */}
-      <div className="flex items-center justify-between border-t border-slate-100 bg-slate-50 px-3 py-1 text-[11px]">
-        <span
-          className={
-            'flex items-center gap-1 truncate ' +
-            (status.type === 'error'
-              ? 'text-red-500'
-              : status.type === 'ok'
-                ? 'text-emerald-500'
-                : 'text-slate-400')
-          }
-        >
-          {status.type === 'error' && <span className="font-bold">✗</span>}
-          {status.type === 'ok' && <span className="font-bold">✓</span>}
-          <span className="truncate">{status.text}</span>
-        </span>
-        <span className="shrink-0 tabular-nums text-slate-400">{count.toLocaleString()} chars</span>
-      </div>
+      {/* 侧边折叠按钮：垂直居中 */}
+      <button
+        onClick={onToggle}
+        title="收起"
+        className="flex w-5 shrink-0 items-center justify-center border-l border-slate-100 text-slate-300 transition hover:bg-indigo-50 hover:text-indigo-400"
+      >
+        {side === 'left' ? '◀' : '▶'}
+      </button>
     </section>
   )
 }
@@ -511,14 +501,14 @@ function ToolBtn({
   const base =
     'relative rounded px-2 py-0.5 text-xs font-medium transition disabled:cursor-not-allowed disabled:opacity-40 shrink-0'
   const style = primary
-    ? 'bg-blue-600 text-white hover:bg-blue-700 active:bg-blue-800'
-    : 'bg-white text-slate-600 border border-slate-200 hover:border-slate-300 hover:bg-slate-50 active:bg-slate-100'
+    ? 'bg-indigo-500 text-white hover:bg-indigo-600 active:bg-indigo-700'
+    : 'bg-white text-slate-600 border border-slate-200 hover:border-indigo-300 hover:text-indigo-600 hover:bg-indigo-50/50 active:bg-indigo-100/50'
   return (
     <button onClick={onClick} disabled={disabled} className={`${base} ${style} group`}>
       {children}
       {helpText && (
         <span
-          className="absolute -right-1 -top-1 flex h-3.5 w-3.5 cursor-help items-center justify-center rounded-full bg-slate-200 text-[9px] leading-none text-slate-500 opacity-60 transition group-hover:opacity-100 group-hover:bg-blue-100 group-hover:text-blue-600"
+          className="absolute -right-1 -top-1 flex h-3.5 w-3.5 cursor-help items-center justify-center rounded-full bg-slate-200 text-[9px] leading-none text-slate-500 opacity-60 transition group-hover:opacity-100 group-hover:bg-indigo-100 group-hover:text-indigo-600"
           title={helpText}
         >
           ?
