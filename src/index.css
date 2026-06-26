@@ -20,3 +20,30 @@ body {
   font-family: ui-monospace, 'JetBrains Mono', 'Cascadia Code', Consolas, monospace;
   font-size: 13px;
 }
+
+/* 编辑器空内容提示 */
+.editor-tip {
+  padding: 2.5rem 2rem;
+  color: #94a3b8;
+  font-size: 13px;
+  line-height: 1.8;
+  pointer-events: none;
+  user-select: none;
+}
+.editor-tip .tip-row {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+.editor-tip .tip-kbd {
+  display: inline-block;
+  padding: 0.1em 0.45em;
+  font-family: inherit;
+  font-size: 11px;
+  line-height: 1.4;
+  color: #64748b;
+  background: #f1f5f9;
+  border: 1px solid #e2e8f0;
+  border-radius: 4px;
+  box-shadow: 0 1px 0 #e2e8f0;
+}

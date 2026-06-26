@@ -1,10 +1,80 @@
 import { useCallback, useMemo, useRef, useState } from 'react'
 import CodeMirror, { EditorView } from '@uiw/react-codemirror'
 import { json } from '@codemirror/lang-json'
+import { Decoration, ViewPlugin, WidgetType } from '@codemirror/view'
+import type { DecorationSet, ViewUpdate } from '@codemirror/view'
 import * as J from './jsonUtils'
 import { diffField, diffTheme, lineDiff, setDiffLines } from './diff'
 
 type Status = { type: 'idle' | 'ok' | 'error'; text: string }
+
+/** 富文本占位提示：空编辑器时显示快捷键提示 */
+class TipWidget extends WidgetType {
+  private lines: string[][]
+  constructor(lines: string[][]) {
+    super()
+    this.lines = lines
+  }
+  toDOM() {
+    const wrap = document.createElement('div')
+    wrap.className = 'editor-tip'
+    for (const parts of this.lines) {
+      const row = document.createElement('div')
+      row.className = 'tip-row'
+      for (const part of parts) {
+        if (part.startsWith('kbd:')) {
+          const kbd = document.createElement('kbd')
+          kbd.className = 'tip-kbd'
+          kbd.textContent = part.slice(4)
+          row.appendChild(kbd)
+        } else {
+          const span = document.createElement('span')
+          span.textContent = part
+          row.appendChild(span)
+        }
+      }
+      wrap.appendChild(row)
+    }
+    return wrap
+  }
+  eq(other: TipWidget) {
+    return JSON.stringify(this.lines) === JSON.stringify(other.lines)
+  }
+}
+
+function createTipExtension(lines: string[][]) {
+  const widget = Decoration.widget({ widget: new TipWidget(lines), side: 1 })
+  return ViewPlugin.fromClass(
+    class {
+      decorations: DecorationSet
+      constructor(view: EditorView) {
+        this.decorations = view.state.doc.length === 0
+          ? Decoration.set([widget.range(0)])
+          : Decoration.set([])
+      }
+      update(update: ViewUpdate) {
+        if (update.docChanged) {
+          this.decorations = update.view.state.doc.length === 0
+            ? Decoration.set([widget.range(0)])
+            : Decoration.set([])
+        }
+      }
+    },
+    { decorations: (v) => v.decorations },
+  )
+}
+
+const leftTip = createTipExtension([
+  ['粘贴 JSON 或任意文本，使用上方工具栏进行处理'],
+  [],
+  ['kbd:Ctrl+Z', ' 撤销　', 'kbd:Ctrl+Y', ' 重做　', 'kbd:Ctrl+F', ' 搜索'],
+])
+
+const rightTip = createTipExtension([
+  ['处理结果将显示在此，也可直接编辑或粘贴'],
+  [],
+  ['kbd:Ctrl+Z', ' 撤销　', 'kbd:Ctrl+Y', ' 重做　', 'kbd:Ctrl+F', ' 搜索'],
+])
 
 export default function App() {
   const [input, setInput] = useState('')
@@ -259,12 +329,11 @@ export default function App() {
         >
           <CodeMirror
             value={input}
-            extensions={extensions}
+            extensions={useMemo(() => [...extensions, leftTip], [extensions])}
             onChange={setInput}
             onCreateEditor={(v) => (leftView.current = v)}
             theme="light"
-            placeholder="粘贴 JSON 或任意文本，使用上方工具栏进行处理…"
-            basicSetup={{ lineNumbers: true, foldGutter: true, highlightActiveLine: true }}
+            basicSetup={true}
             height="100%"
             className="h-full"
           />
@@ -305,12 +374,11 @@ export default function App() {
         >
           <CodeMirror
             value={output}
-            extensions={extensions}
+            extensions={useMemo(() => [...extensions, rightTip], [extensions])}
             onChange={setOutput}
             onCreateEditor={(v) => (rightView.current = v)}
             theme="light"
-            placeholder="处理结果将显示在此，也可直接编辑或粘贴…"
-            basicSetup={{ lineNumbers: true, foldGutter: true, highlightActiveLine: true }}
+            basicSetup={true}
             height="100%"
             className="h-full"
           />
