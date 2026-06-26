@@ -558,33 +558,3 @@ function Switch({
   )
 }
 
-/** 分段选择组件 */
-function Segmented<T extends string | number>({
-  value,
-  onChange,
-  options,
-}: {
-  value: T
-  onChange: (v: T) => void
-  options: { label: string; value: T }[]
-}) {
-  return (
-    <span className="inline-flex rounded-md border border-slate-300 bg-slate-100 p-0.5">
-      {options.map((o) => (
-        <button
-          key={String(o.value)}
-          type="button"
-          onClick={() => onChange(o.value)}
-          className={
-            'rounded px-2.5 py-1 text-sm transition ' +
-            (value === o.value
-              ? 'bg-white text-slate-800 shadow-sm'
-              : 'text-slate-500 hover:text-slate-700')
-          }
-        >
-          {o.label}
-        </button>
-      ))}
-    </span>
-  )
-}
