@@ -249,6 +249,11 @@ export default function App() {
                 <ToolBtn primary onClick={leftForceUnescape}>强制去除转义</ToolBtn>
                 <Help text="针对字符串值：若引号内的内容本身是 JSON（对象/数组），则去掉这层引号并解析为真正的结构。多层嵌套时，每点击一次去除一层；没有可去除的内容时会提示「已经无需去除转义」。" />
               </span>
+              <span className="mx-0.5 h-3.5 w-px bg-slate-200" />
+              <ToolBtn onClick={() => leftOperate('URL 编码', J.urlEncode)}>URL Encode</ToolBtn>
+              <ToolBtn onClick={() => leftOperate('URL 解码', J.urlDecode)}>URL Decode</ToolBtn>
+              <ToolBtn onClick={() => leftOperate('Base64 编码', J.base64Encode)}>B64 Encode</ToolBtn>
+              <ToolBtn onClick={() => leftOperate('Base64 解码', J.base64Decode)}>B64 Decode</ToolBtn>
             </>
           }
         >
@@ -258,7 +263,7 @@ export default function App() {
             onChange={setInput}
             onCreateEditor={(v) => (leftView.current = v)}
             theme="light"
-            placeholder="在此粘贴 JSON…"
+            placeholder="粘贴 JSON 或任意文本，使用上方工具栏进行处理…"
             basicSetup={{ lineNumbers: true, foldGutter: true, highlightActiveLine: true }}
             height="100%"
             className="h-full"
@@ -287,6 +292,11 @@ export default function App() {
                 <Help text="针对字符串值：若引号内的内容本身是 JSON（对象/数组），则去掉这层引号并解析为真正的结构。多层嵌套时，每点击一次去除一层；没有可去除的内容时会提示「已经无需去除转义」。" />
               </span>
               <span className="mx-0.5 h-3.5 w-px bg-slate-200" />
+              <ToolBtn onClick={() => rightOperate('URL 编码', J.urlEncode)}>URL Encode</ToolBtn>
+              <ToolBtn onClick={() => rightOperate('URL 解码', J.urlDecode)}>URL Decode</ToolBtn>
+              <ToolBtn onClick={() => rightOperate('Base64 编码', J.base64Encode)}>B64 Encode</ToolBtn>
+              <ToolBtn onClick={() => rightOperate('Base64 解码', J.base64Decode)}>B64 Decode</ToolBtn>
+              <span className="mx-0.5 h-3.5 w-px bg-slate-200" />
               <ToolBtn onClick={copyOutput} disabled={!output}>
                 复制
               </ToolBtn>
@@ -299,7 +309,7 @@ export default function App() {
             onChange={setOutput}
             onCreateEditor={(v) => (rightView.current = v)}
             theme="light"
-            placeholder="处理结果显示在这里，也可直接编辑/粘贴…"
+            placeholder="处理结果将显示在此，也可直接编辑或粘贴…"
             basicSetup={{ lineNumbers: true, foldGutter: true, highlightActiveLine: true }}
             height="100%"
             className="h-full"

@@ -180,3 +180,31 @@ export function forceUnescape(text: string, indent = 2): ForceUnescapeResult {
     changed: ctx.changed,
   }
 }
+
+// ── 编码 / 解码 ──
+
+/** URL 编码 */
+export function urlEncode(text: string): string {
+  return encodeURIComponent(text)
+}
+
+/** URL 解码 */
+export function urlDecode(text: string): string {
+  return decodeURIComponent(text)
+}
+
+/** Base64 编码（支持 Unicode） */
+export function base64Encode(text: string): string {
+  const bytes = new TextEncoder().encode(text)
+  let binary = ''
+  for (const b of bytes) binary += String.fromCharCode(b)
+  return btoa(binary)
+}
+
+/** Base64 解码（支持 Unicode） */
+export function base64Decode(text: string): string {
+  const binary = atob(text)
+  const bytes = new Uint8Array(binary.length)
+  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i)
+  return new TextDecoder().decode(bytes)
+}
