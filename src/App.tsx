@@ -112,15 +112,21 @@ export default function App() {
     [input],
   )
 
-  const leftValidate = useCallback(() => {
-    const r = J.validate(input)
-    if (r.ok) {
-      setLeftStatus({ type: 'ok', text: r.message })
-    } else {
+  const leftFormatValidate = useCallback(() => {
+    if (!input.trim()) {
+      setLeftStatus({ type: 'error', text: '内容为空' })
+      return
+    }
+    try {
+      const result = J.format(input, indent)
+      setInput(result)
+      setLeftStatus({ type: 'ok', text: `格式化成功 · ${result.length} 字符` })
+    } catch {
+      const r = J.validate(input)
       const pos = r.line ? `（第 ${r.line} 行 第 ${r.column} 列）` : ''
       setLeftStatus({ type: 'error', text: `${r.message} ${pos}` })
     }
-  }, [input])
+  }, [input, indent])
 
   const leftUnescape = useCallback(() => {
     if (!input.trim()) {
@@ -175,15 +181,21 @@ export default function App() {
     [output],
   )
 
-  const rightValidate = useCallback(() => {
-    const r = J.validate(output)
-    if (r.ok) {
-      setRightStatus({ type: 'ok', text: r.message })
-    } else {
+  const rightFormatValidate = useCallback(() => {
+    if (!output.trim()) {
+      setRightStatus({ type: 'error', text: '内容为空' })
+      return
+    }
+    try {
+      const result = J.format(output, indent)
+      setOutput(result)
+      setRightStatus({ type: 'ok', text: `格式化成功 · ${result.length} 字符` })
+    } catch {
+      const r = J.validate(output)
       const pos = r.line ? `（第 ${r.line} 行 第 ${r.column} 列）` : ''
       setRightStatus({ type: 'error', text: `${r.message} ${pos}` })
     }
-  }, [output])
+  }, [output, indent])
 
   const rightUnescape = useCallback(() => {
     if (!output.trim()) {
@@ -289,11 +301,10 @@ export default function App() {
           count={input.length}
           toolbar={
             <>
-              <ToolBtn onClick={() => leftOperate('格式化', (t) => J.format(t, indent))}>格式化</ToolBtn>
+              <ToolBtn onClick={leftFormatValidate}>格式化/校验</ToolBtn>
               <ToolBtn onClick={() => leftOperate('压缩', J.minify)}>压缩</ToolBtn>
               <ToolBtn onClick={() => leftOperate('转义', J.escape)}>转义</ToolBtn>
               <ToolBtn onClick={leftUnescape}>去除转义</ToolBtn>
-              <ToolBtn onClick={leftValidate}>校验</ToolBtn>
               <span className="mx-0.5 h-3.5 w-px shrink-0 bg-indigo-100" />
               <ToolBtn onClick={leftForceUnescape} helpText={helpText}>强制去除转义</ToolBtn>
               <span className="mx-0.5 h-3.5 w-px shrink-0 bg-indigo-100" />
@@ -325,11 +336,10 @@ export default function App() {
           count={output.length}
           toolbar={
             <>
-              <ToolBtn onClick={() => rightOperate('格式化', (t) => J.format(t, indent))}>格式化</ToolBtn>
+              <ToolBtn onClick={rightFormatValidate}>格式化/校验</ToolBtn>
               <ToolBtn onClick={() => rightOperate('压缩', J.minify)}>压缩</ToolBtn>
               <ToolBtn onClick={() => rightOperate('转义', J.escape)}>转义</ToolBtn>
               <ToolBtn onClick={rightUnescape}>去除转义</ToolBtn>
-              <ToolBtn onClick={rightValidate}>校验</ToolBtn>
               <span className="mx-0.5 h-3.5 w-px shrink-0 bg-indigo-100" />
               <ToolBtn onClick={rightForceUnescape} helpText={helpText}>强制去除转义</ToolBtn>
               <span className="mx-0.5 h-3.5 w-px shrink-0 bg-indigo-100" />
