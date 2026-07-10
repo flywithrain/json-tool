@@ -233,32 +233,36 @@ export default function App() {
   // ── 差异对比 ──
 
   const doDiff = useCallback(() => {
-    if (!leftView.current || !rightView.current) return
-    let a = input
-    let b = output
-    try { a = J.format(input, indent) } catch { /* 保持原文 */ }
-    try { b = J.format(output, indent) } catch { /* 保持原文 */ }
-    const { a: da, b: db } = lineDiff(a, b)
-    leftView.current.dispatch({
-      changes: { from: 0, to: leftView.current.state.doc.length, insert: a },
-      effects: setDiffLines.of(da),
-    })
-    rightView.current.dispatch({
-      changes: { from: 0, to: rightView.current.state.doc.length, insert: b },
-      effects: setDiffLines.of(db),
-    })
+    // 先展开两侧面板，确保 CodeMirror 实例被创建
     setLeftCollapsed(false)
     setRightCollapsed(false)
-    const total = da.size + db.size
-    if (total === 0) {
-      const msg = '两侧内容一致（已忽略格式差异）'
-      setLeftStatus({ type: 'ok', text: msg })
-      setRightStatus({ type: 'ok', text: msg })
-    } else {
-      const msg = `已格式化并高亮差异：左 ${da.size} 行 / 右 ${db.size} 行（编辑任意一侧自动清除）`
-      setLeftStatus({ type: 'ok', text: msg })
-      setRightStatus({ type: 'ok', text: msg })
-    }
+    // 等待 React 渲染完成、编辑器视图创建后再执行差异对比
+    setTimeout(() => {
+      if (!leftView.current || !rightView.current) return
+      let a = input
+      let b = output
+      try { a = J.format(input, indent) } catch { /* 保持原文 */ }
+      try { b = J.format(output, indent) } catch { /* 保持原文 */ }
+      const { a: da, b: db } = lineDiff(a, b)
+      leftView.current.dispatch({
+        changes: { from: 0, to: leftView.current.state.doc.length, insert: a },
+        effects: setDiffLines.of(da),
+      })
+      rightView.current.dispatch({
+        changes: { from: 0, to: rightView.current.state.doc.length, insert: b },
+        effects: setDiffLines.of(db),
+      })
+      const total = da.size + db.size
+      if (total === 0) {
+        const msg = '两侧内容一致（已忽略格式差异）'
+        setLeftStatus({ type: 'ok', text: msg })
+        setRightStatus({ type: 'ok', text: msg })
+      } else {
+        const msg = `已格式化并高亮差异：左 ${da.size} 行 / 右 ${db.size} 行（编辑任意一侧自动清除）`
+        setLeftStatus({ type: 'ok', text: msg })
+        setRightStatus({ type: 'ok', text: msg })
+      }
+    }, 0)
   }, [input, output, indent])
 
   const helpText = '针对字符串值：若引号内的内容本身是 JSON（对象/数组），则去掉这层引号并解析为真正的结构。多层嵌套时，每点击一次去除一层；没有可去除的内容时会提示「已经无需去除转义」。'
@@ -423,6 +427,22 @@ function ScrollableToolbar({ children }: { children: React.ReactNode }) {
   )
 }
 
+/** 折叠/展开按钮 SVG 图标 */
+function ChevronLeft() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+      <polyline points="15 6 9 12 15 18" />
+    </svg>
+  )
+}
+function ChevronRight() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+      <polyline points="9 6 15 12 9 18" />
+    </svg>
+  )
+}
+
 function Pane({
   side,
   collapsed,
@@ -442,27 +462,36 @@ function Pane({
 }) {
   if (collapsed) {
     return (
-      <div className="relative flex w-5 shrink-0 items-center justify-center">
+      <div className="flex w-6 shrink-0 overflow-hidden rounded-lg border border-slate-200 bg-white">
         <button
           onClick={onToggle}
-          title="展开"
-          className="absolute flex h-7 w-5 items-center justify-center rounded bg-white text-[10px] text-slate-400 shadow-sm ring-1 ring-slate-200 transition hover:bg-indigo-50 hover:text-indigo-500 hover:ring-indigo-200"
+          title="展开面板"
+          className="group flex w-full cursor-pointer flex-col items-center justify-center text-slate-400 transition-colors hover:bg-indigo-50 hover:text-indigo-500"
         >
-          {side === 'left' ? '›' : '‹'}
+          <span className="flex h-16 items-center">{side === 'left' ? <ChevronRight /> : <ChevronLeft />}</span>
         </button>
       </div>
     )
   }
   return (
-    <div className="relative flex min-w-0 flex-1">
-      <section className="flex min-w-0 flex-1 flex-col overflow-hidden rounded-lg border border-slate-200 bg-white">
-        {/* 顶部工具栏 */}
+    <div className="flex min-w-0 flex-1 overflow-hidden rounded-lg border border-slate-200 bg-white">
+      {/* 右侧面板：折叠条在最左侧 */}
+      {side === 'right' && (
+        <button
+          onClick={onToggle}
+          title="收起面板"
+          className="group flex w-5 shrink-0 cursor-pointer flex-col items-center justify-center border-r border-slate-100 bg-slate-50/50 text-slate-400 transition-colors hover:bg-indigo-50 hover:text-indigo-500"
+        >
+          <ChevronRight />
+        </button>
+      )}
+
+      {/* 主内容区 */}
+      <section className="flex min-w-0 flex-1 flex-col">
         <div className="flex items-center border-b border-slate-100 bg-slate-50">
           <ScrollableToolbar>{toolbar}</ScrollableToolbar>
         </div>
-        {/* 编辑器 */}
         <div className="min-h-0 flex-1 overflow-auto">{children}</div>
-        {/* 底部信息栏 */}
         <div className="flex items-center justify-between border-t border-slate-100 bg-slate-50 px-3 py-1 text-[11px]">
           <span
             className={
@@ -481,15 +510,17 @@ function Pane({
           <span className="shrink-0 tabular-nums text-slate-400">{count.toLocaleString()} chars</span>
         </div>
       </section>
-      {/* 折叠标签：小便利贴风格，浮在边缘中间 */}
-      <button
-        onClick={onToggle}
-        title="收起"
-        className="absolute top-1/2 z-10 flex h-7 w-4 -translate-y-1/2 items-center justify-center rounded bg-white text-[10px] text-slate-400 shadow-sm ring-1 ring-slate-200 transition hover:bg-indigo-50 hover:text-indigo-500 hover:ring-indigo-200"
-        style={side === 'left' ? { right: -8 } : { left: -8 }}
-      >
-        {side === 'left' ? '‹' : '›'}
-      </button>
+
+      {/* 左侧面板：折叠条在最右侧 */}
+      {side === 'left' && (
+        <button
+          onClick={onToggle}
+          title="收起面板"
+          className="group flex w-5 shrink-0 cursor-pointer flex-col items-center justify-center border-l border-slate-100 bg-slate-50/50 text-slate-400 transition-colors hover:bg-indigo-50 hover:text-indigo-500"
+        >
+          <ChevronLeft />
+        </button>
+      )}
     </div>
   )
 }
