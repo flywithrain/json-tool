@@ -81,11 +81,71 @@ export default function App() {
   const [rightStatus, setRightStatus] = useState<Status>({ type: 'idle', text: '' })
   const [indent, setIndent] = useState(2)
   const [wrap, setWrap] = useState(true)
+  const [syncScroll, setSyncScroll] = useState(true)
   const [leftCollapsed, setLeftCollapsed] = useState(false)
   const [rightCollapsed, setRightCollapsed] = useState(true)
 
   const leftView = useRef<EditorView | null>(null)
   const rightView = useRef<EditorView | null>(null)
+  const isSyncingScroll = useRef(false)
+  const unbindScrollSync = useRef<(() => void) | null>(null)
+
+  const bindScrollSync = useCallback(() => {
+    if (unbindScrollSync.current) {
+      unbindScrollSync.current()
+      unbindScrollSync.current = null
+    }
+    const leftEditor = leftView.current
+    const rightEditor = rightView.current
+    if (!syncScroll || !leftEditor || !rightEditor) return
+
+    const leftScrollDOM = leftEditor.scrollDOM
+    const rightScrollDOM = rightEditor.scrollDOM
+
+    const handleLeftScroll = () => {
+      if (isSyncingScroll.current) return
+      isSyncingScroll.current = true
+      rightScrollDOM.scrollTop = leftScrollDOM.scrollTop
+      rightScrollDOM.scrollLeft = leftScrollDOM.scrollLeft
+      requestAnimationFrame(() => { isSyncingScroll.current = false })
+    }
+
+    const handleRightScroll = () => {
+      if (isSyncingScroll.current) return
+      isSyncingScroll.current = true
+      leftScrollDOM.scrollTop = rightScrollDOM.scrollTop
+      leftScrollDOM.scrollLeft = rightScrollDOM.scrollLeft
+      requestAnimationFrame(() => { isSyncingScroll.current = false })
+    }
+
+    leftScrollDOM.addEventListener('scroll', handleLeftScroll, { passive: true })
+    rightScrollDOM.addEventListener('scroll', handleRightScroll, { passive: true })
+
+    unbindScrollSync.current = () => {
+      leftScrollDOM.removeEventListener('scroll', handleLeftScroll)
+      rightScrollDOM.removeEventListener('scroll', handleRightScroll)
+    }
+  }, [syncScroll])
+
+  useEffect(() => {
+    bindScrollSync()
+    return () => {
+      if (unbindScrollSync.current) {
+        unbindScrollSync.current()
+        unbindScrollSync.current = null
+      }
+    }
+  }, [bindScrollSync])
+
+  const onLeftEditorCreate = useCallback((v: EditorView) => {
+    leftView.current = v
+    setTimeout(bindScrollSync, 0)
+  }, [bindScrollSync])
+
+  const onRightEditorCreate = useCallback((v: EditorView) => {
+    rightView.current = v
+    setTimeout(bindScrollSync, 0)
+  }, [bindScrollSync])
 
   const extensions = useMemo(
     () => [json(), diffField, diffTheme, ...(wrap ? [EditorView.lineWrapping] : [])],
@@ -290,6 +350,7 @@ export default function App() {
               <option value={4}>4</option>
             </select>
           </div>
+          <Switch checked={syncScroll} onChange={setSyncScroll} label="同步滚动" />
           <Switch checked={wrap} onChange={setWrap} label="自动换行" />
         </div>
       </header>
@@ -323,7 +384,7 @@ export default function App() {
             value={input}
             extensions={leftExtensions}
             onChange={setInput}
-            onCreateEditor={(v) => (leftView.current = v)}
+            onCreateEditor={onLeftEditorCreate}
             theme="light"
             basicSetup={true}
             height="100%"
@@ -358,7 +419,7 @@ export default function App() {
             value={output}
             extensions={rightExtensions}
             onChange={setOutput}
-            onCreateEditor={(v) => (rightView.current = v)}
+            onCreateEditor={onRightEditorCreate}
             theme="light"
             basicSetup={true}
             height="100%"
