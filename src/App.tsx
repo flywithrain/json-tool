@@ -82,6 +82,7 @@ export default function App() {
   const [indent, setIndent] = useState(2)
   const [wrap, setWrap] = useState(true)
   const [syncScroll, setSyncScroll] = useState(true)
+  const [autoFormat, setAutoFormat] = useState(true)
   const [leftCollapsed, setLeftCollapsed] = useState(false)
   const [rightCollapsed, setRightCollapsed] = useState(true)
 
@@ -89,6 +90,8 @@ export default function App() {
   const rightView = useRef<EditorView | null>(null)
   const isSyncingScroll = useRef(false)
   const unbindScrollSync = useRef<(() => void) | null>(null)
+  const justPastedLeft = useRef(false)
+  const justPastedRight = useRef(false)
 
   const bindScrollSync = useCallback(() => {
     if (unbindScrollSync.current) {
@@ -150,6 +153,52 @@ export default function App() {
   const extensions = useMemo(
     () => [json(), diffField, diffTheme, ...(wrap ? [EditorView.lineWrapping] : [])],
     [wrap],
+  )
+
+  // ── 粘贴时自动格式化/校验 ──
+
+  const formatOrValidate = useCallback(
+    (value: string): { value: string; status: Status } => {
+      try {
+        const result = J.format(value, indent)
+        return { value: result, status: { type: 'ok', text: `格式化成功 · ${result.length} 字符` } }
+      } catch {
+        const r = J.validate(value)
+        const pos = r.line ? `（第 ${r.line} 行 第 ${r.column} 列）` : ''
+        return { value, status: { type: 'error', text: `${r.message} ${pos}` } }
+      }
+    },
+    [indent],
+  )
+
+  const handleLeftChange = useCallback(
+    (value: string) => {
+      setInput(value)
+      if (autoFormat && justPastedLeft.current) {
+        justPastedLeft.current = false
+        if (value.trim()) {
+          const result = formatOrValidate(value)
+          setInput(result.value)
+          setLeftStatus(result.status)
+        }
+      }
+    },
+    [autoFormat, formatOrValidate],
+  )
+
+  const handleRightChange = useCallback(
+    (value: string) => {
+      setOutput(value)
+      if (autoFormat && justPastedRight.current) {
+        justPastedRight.current = false
+        if (value.trim()) {
+          const result = formatOrValidate(value)
+          setOutput(result.value)
+          setRightStatus(result.status)
+        }
+      }
+    },
+    [autoFormat, formatOrValidate],
   )
 
   // ── 左侧操作：基于左侧内容，结果写回左侧 ──
@@ -327,8 +376,27 @@ export default function App() {
 
   const helpText = '针对字符串值：若引号内的内容本身是 JSON（对象/数组），则去掉这层引号并解析为真正的结构。多层嵌套时，每点击一次去除一层；没有可去除的内容时会提示「已经无需去除转义」。'
 
-  const leftExtensions = useMemo(() => [...extensions, editorTip], [extensions])
-  const rightExtensions = useMemo(() => [...extensions, editorTip], [extensions])
+  const leftPasteHandler = useMemo(
+    () =>
+      EditorView.domEventHandlers({
+        paste: () => {
+          justPastedLeft.current = true
+        },
+      }),
+    [],
+  )
+  const rightPasteHandler = useMemo(
+    () =>
+      EditorView.domEventHandlers({
+        paste: () => {
+          justPastedRight.current = true
+        },
+      }),
+    [],
+  )
+
+  const leftExtensions = useMemo(() => [...extensions, editorTip, leftPasteHandler], [extensions, leftPasteHandler])
+  const rightExtensions = useMemo(() => [...extensions, editorTip, rightPasteHandler], [extensions, rightPasteHandler])
 
   return (
     <div className="flex h-full flex-col bg-slate-100 text-slate-800">
@@ -350,6 +418,7 @@ export default function App() {
               <option value={4}>4</option>
             </select>
           </div>
+          <Switch checked={autoFormat} onChange={setAutoFormat} label="粘贴格式化" />
           <Switch checked={syncScroll} onChange={setSyncScroll} label="同步滚动" />
           <Switch checked={wrap} onChange={setWrap} label="自动换行" />
         </div>
@@ -383,7 +452,7 @@ export default function App() {
           <CodeMirror
             value={input}
             extensions={leftExtensions}
-            onChange={setInput}
+            onChange={handleLeftChange}
             onCreateEditor={onLeftEditorCreate}
             theme="light"
             basicSetup={true}
@@ -418,7 +487,7 @@ export default function App() {
           <CodeMirror
             value={output}
             extensions={rightExtensions}
-            onChange={setOutput}
+            onChange={handleRightChange}
             onCreateEditor={onRightEditorCreate}
             theme="light"
             basicSetup={true}
