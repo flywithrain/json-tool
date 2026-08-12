@@ -4,4 +4,12 @@ dist-ssr
 *.local
 .vercel
 .DS_Store
+Thumbs.db
 npm-debug.log*
+*.tsbuildinfo
+.env
+.env.local
+.env.*.local
+*.log
+.vscode/
+.idea/

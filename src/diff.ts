@@ -37,13 +37,28 @@ export const diffTheme = EditorView.baseTheme({
   '.cm-diff-line': { backgroundColor: 'rgba(251, 146, 60, 0.22)' },
 })
 
+/** 一个连续的差异块（1-based，闭区间；区间为空时 end < start） */
+export interface DiffBlock {
+  leftStart: number
+  leftEnd: number
+  rightStart: number
+  rightEnd: number
+}
+
+export interface DiffResult {
+  /** 左侧需要高亮的行号集合 */
+  leftLines: Set<number>
+  /** 右侧需要高亮的行号集合 */
+  rightLines: Set<number>
+  /** 差异块列表，按出现顺序排列，用于上一个/下一个跳转 */
+  blocks: DiffBlock[]
+}
+
 /**
- * 行级差异（基于 LCS）。返回两侧各自“与对方不同”的行号集合（1-based）。
+ * 行级差异（基于 LCS）。单次遍历同时产出两侧高亮行号与差异块，
+ * 供高亮显示与上一个/下一个跳转使用。
  */
-export function lineDiff(
-  aText: string,
-  bText: string,
-): { a: Set<number>; b: Set<number> } {
+export function computeLineDiff(aText: string, bText: string): DiffResult {
   const a = aText.split('\n')
   const b = bText.split('\n')
   const m = a.length
@@ -57,24 +72,36 @@ export function lineDiff(
     }
   }
 
-  const aDiff = new Set<number>()
-  const bDiff = new Set<number>()
+  const leftLines = new Set<number>()
+  const rightLines = new Set<number>()
+  const blocks: DiffBlock[] = []
+  let cur: DiffBlock | null = null
   let i = 0
   let j = 0
-  while (i < m && j < n) {
-    if (a[i] === b[j]) {
+  while (i < m || j < n) {
+    if (i < m && j < n && a[i] === b[j]) {
+      if (cur) {
+        blocks.push(cur)
+        cur = null
+      }
       i++
       j++
-    } else if (dp[i + 1][j] >= dp[i][j + 1]) {
-      aDiff.add(i + 1)
-      i++
     } else {
-      bDiff.add(j + 1)
-      j++
+      if (!cur) {
+        cur = { leftStart: i + 1, leftEnd: i, rightStart: j + 1, rightEnd: j }
+      }
+      if (i < m && (j >= n || dp[i + 1][j] >= dp[i][j + 1])) {
+        leftLines.add(i + 1)
+        cur.leftEnd = i + 1
+        i++
+      } else {
+        rightLines.add(j + 1)
+        cur.rightEnd = j + 1
+        j++
+      }
     }
   }
-  while (i < m) aDiff.add(++i)
-  while (j < n) bDiff.add(++j)
+  if (cur) blocks.push(cur)
 
-  return { a: aDiff, b: bDiff }
+  return { leftLines, rightLines, blocks }
 }
