@@ -3,6 +3,7 @@ import { JsonTool } from './tools/JsonTool'
 import { XmlTool } from './tools/XmlTool'
 import { DiffTool } from './tools/DiffTool'
 import { CodecTool } from './tools/CodecTool'
+import { TimestampTool } from './tools/TimestampTool'
 
 interface ToolDef {
   id: string
@@ -15,6 +16,7 @@ const TOOLS: ToolDef[] = [
   { id: 'json', name: 'JSON', icon: '{ }', component: JsonTool },
   { id: 'xml', name: 'XML', icon: '< />', component: XmlTool },
   { id: 'codec', name: '编解码', icon: '#', component: CodecTool },
+  { id: 'timestamp', name: '时间戳', icon: '⏱', component: TimestampTool },
   { id: 'diff', name: '差异对比', icon: '⇄', component: DiffTool },
 ]
 

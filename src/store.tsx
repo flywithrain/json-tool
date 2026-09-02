@@ -23,6 +23,9 @@ interface Store {
 
   codecContent: string
   setCodecContent: (s: string) => void
+
+  tsContent: string
+  setTsContent: (s: string) => void
 }
 
 const Ctx = createContext<Store | null>(null)
@@ -34,6 +37,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const [diffLeft, setDiffLeft] = useState('')
   const [diffRight, setDiffRight] = useState('')
   const [codecContent, setCodecContent] = useState('')
+  const [tsContent, setTsContent] = useState('')
 
   return (
     <Ctx.Provider
@@ -50,6 +54,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         setDiffRight,
         codecContent,
         setCodecContent,
+        tsContent,
+        setTsContent,
       }}
     >
       {children}
