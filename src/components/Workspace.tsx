@@ -113,11 +113,13 @@ export function SidebarBtn({
   onClick,
   disabled,
   helpText,
+  active,
   children,
 }: {
   onClick: () => void
   disabled?: boolean
   helpText?: string
+  active?: boolean
   children: ReactNode
 }) {
   return (
@@ -126,7 +128,10 @@ export function SidebarBtn({
       disabled={disabled}
       className={
         'group relative flex w-full items-center rounded-md px-2.5 py-1.5 text-xs font-medium transition disabled:cursor-not-allowed disabled:opacity-40 ' +
-        'border border-slate-200 bg-white text-slate-600 hover:border-indigo-300 hover:bg-indigo-50/50 hover:text-indigo-600 active:bg-indigo-100/50'
+        'border ' +
+        (active
+          ? 'border-indigo-300 bg-indigo-50 text-indigo-600'
+          : 'border-slate-200 bg-white text-slate-600 hover:border-indigo-300 hover:bg-indigo-50/50 hover:text-indigo-600 active:bg-indigo-100/50')
       }
     >
       {children}
