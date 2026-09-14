@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Prec, StateEffect, StateField } from '@codemirror/state'
-import type { EditorState, Extension } from '@codemirror/state'
+import type { EditorState, Extension, Range } from '@codemirror/state'
 import { Decoration, EditorView, keymap } from '@codemirror/view'
 import type { DecorationSet, ViewUpdate } from '@codemirror/view'
 
@@ -30,7 +30,7 @@ const currentMark = Decoration.mark({ class: 'cm-find-match-current' })
 
 /** 当前项用强调色，其余项仅在「高亮全部」开启时着色 */
 function buildDecorations(value: SearchHighlight): DecorationSet {
-  const ranges = []
+  const ranges: Range<Decoration>[] = []
   value.matches.forEach((m, i) => {
     if (i === value.current) ranges.push(currentMark.range(m.from, m.to))
     else if (value.highlightAll) ranges.push(matchMark.range(m.from, m.to))
