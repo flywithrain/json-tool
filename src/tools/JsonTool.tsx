@@ -16,7 +16,20 @@ const editorTip = createTipExtension([
 ])
 
 export function JsonTool() {
-  const { jsonContent, setJsonContent, setDiffLeft, setCodecContent, setXmlContent, setActiveTool } = useStore()
+  const {
+    jsonTabs,
+    jsonActiveId,
+    jsonContent,
+    setJsonContent,
+    addJsonTab,
+    closeJsonTab,
+    selectJsonTab,
+    renameJsonTab,
+    openXmlTab,
+    setDiffLeft,
+    setCodecContent,
+    setActiveTool,
+  } = useStore()
   const [status, setStatus] = useState<Status>({ type: 'idle', text: '' })
   const [indent, setIndent] = useState(2)
   const [wrap, setWrap] = useState(true)
@@ -120,7 +133,7 @@ export function JsonTool() {
     setActiveTool('codec')
   }, [jsonContent, setCodecContent, setActiveTool])
 
-  // ── 跨页签：转 XML ──
+  // ── 跨页签：转 XML（开新 XML 页签，不覆盖已有内容）──
   const convertToXml = useCallback(() => {
     if (!jsonContent.trim()) {
       setStatus({ type: 'error', text: '内容为空' })
@@ -128,13 +141,12 @@ export function JsonTool() {
     }
     try {
       const result = X.fromJson(jsonContent, indent)
-      setXmlContent(result)
-      setActiveTool('xml')
+      openXmlTab(result)
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e)
       setStatus({ type: 'error', text: `转 XML 失败：${msg}` })
     }
-  }, [jsonContent, indent, setXmlContent, setActiveTool])
+  }, [jsonContent, indent, openXmlTab])
 
   // ── 粘贴时自动格式化/校验 ──
   const handleChange = useCallback(
@@ -199,7 +211,18 @@ export function JsonTool() {
   )
 
   return (
-    <Workspace sidebar={sidebar} status={status} count={jsonContent.length} cursorInfo={cursorInfo}>
+    <Workspace
+      sidebar={sidebar}
+      status={status}
+      count={jsonContent.length}
+      cursorInfo={cursorInfo}
+      tabs={jsonTabs}
+      activeTabId={jsonActiveId}
+      onSelectTab={selectJsonTab}
+      onCloseTab={closeJsonTab}
+      onAddTab={addJsonTab}
+      onRenameTab={renameJsonTab}
+    >
       <CodeMirror
         value={jsonContent}
         extensions={allExtensions}

@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback, type ReactNode } from 'react'
+import { useState, useRef, useCallback, useEffect, type ReactNode } from 'react'
 import type { ViewUpdate } from '@codemirror/view'
 
 export type Status = { type: 'idle' | 'ok' | 'error'; text: string }
@@ -59,21 +59,138 @@ export function CursorInfoView({ info }: { info: CursorInfo }) {
   )
 }
 
+/** 页签栏单项数据 */
+export interface TabBarItem {
+  id: string
+  title: string
+}
+
+/** 多页签栏：可切换、可关闭、可新建、双击重命名，超宽时横向滚动 */
+export function TabBar({
+  tabs,
+  activeId,
+  onSelect,
+  onClose,
+  onAdd,
+  onRename,
+}: {
+  tabs: TabBarItem[]
+  activeId: string
+  onSelect: (id: string) => void
+  onClose: (id: string) => void
+  onAdd: () => void
+  onRename: (id: string, title: string) => void
+}) {
+  const [editingId, setEditingId] = useState<string | null>(null)
+  const [draft, setDraft] = useState('')
+  const inputRef = useRef<HTMLInputElement>(null)
+
+  // 进入编辑态时全选现有标题，方便直接输入覆盖
+  useEffect(() => {
+    if (editingId) inputRef.current?.select()
+  }, [editingId])
+
+  const startEdit = (t: TabBarItem) => {
+    setEditingId(t.id)
+    setDraft(t.title)
+  }
+
+  const commit = () => {
+    if (editingId) {
+      const title = draft.trim()
+      if (title) onRename(editingId, title)
+    }
+    setEditingId(null)
+  }
+
+  return (
+    <div className="flex items-center gap-1 overflow-x-auto border-b border-slate-100 bg-slate-50 px-1.5 py-1">
+      {tabs.map((t) => {
+        const active = t.id === activeId
+        const editing = editingId === t.id
+        return (
+          <div
+            key={t.id}
+            onClick={() => onSelect(t.id)}
+            onDoubleClick={() => startEdit(t)}
+            title={editing ? undefined : `${t.title}（双击重命名）`}
+            className={
+              'group flex shrink-0 cursor-pointer select-none items-center gap-1 rounded-md border px-2 py-1 text-xs font-medium transition ' +
+              (editing
+                ? 'border-indigo-400 bg-white text-indigo-600 shadow-sm ring-1 ring-indigo-200'
+                : active
+                  ? 'border-indigo-300 bg-white text-indigo-600 shadow-sm'
+                  : 'border-transparent text-slate-500 hover:border-slate-200 hover:bg-white hover:text-slate-700')
+            }
+          >
+            {editing ? (
+              <input
+                ref={inputRef}
+                value={draft}
+                autoFocus
+                onClick={(e) => e.stopPropagation()}
+                onChange={(e) => setDraft(e.target.value)}
+                onBlur={commit}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') commit()
+                  else if (e.key === 'Escape') setEditingId(null)
+                }}
+                className="w-24 rounded border border-indigo-200 bg-white px-0.5 py-0 text-xs text-slate-700 outline-none focus:border-indigo-400"
+              />
+            ) : (
+              <span className="max-w-40 truncate">{t.title}</span>
+            )}
+            <button
+              onClick={(e) => {
+                e.stopPropagation()
+                onClose(t.id)
+              }}
+              title="关闭页签"
+              className="flex h-3.5 w-3.5 items-center justify-center rounded text-[11px] leading-none text-slate-400 transition hover:bg-slate-200 hover:text-slate-700"
+            >
+              ×
+            </button>
+          </div>
+        )
+      })}
+      <button
+        onClick={onAdd}
+        title="新建页签"
+        className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md border border-slate-200 bg-white text-sm leading-none text-slate-400 transition hover:border-indigo-300 hover:text-indigo-500"
+      >
+        +
+      </button>
+    </div>
+  )
+}
+
 /**
- * 左右结构工作区：左侧垂直工具栏 + 右侧主体（编辑器 + 底部状态栏）。
- * JSON / XML / 编解码 页签共用此布局。
+ * 左右结构工作区：左侧垂直工具栏 + 右侧主体（可选页签栏 + 编辑器 + 底部状态栏）。
+ * JSON / XML / 编解码 页签共用此布局；传入 tabs 等属性时顶部展示多页签栏。
  */
 export function Workspace({
   sidebar,
   status,
   count,
   cursorInfo,
+  tabs,
+  activeTabId,
+  onSelectTab,
+  onCloseTab,
+  onAddTab,
+  onRenameTab,
   children,
 }: {
   sidebar: ReactNode
   status: Status
   count: number
   cursorInfo: CursorInfo
+  tabs?: TabBarItem[]
+  activeTabId?: string
+  onSelectTab?: (id: string) => void
+  onCloseTab?: (id: string) => void
+  onAddTab?: () => void
+  onRenameTab?: (id: string, title: string) => void
   children: ReactNode
 }) {
   return (
@@ -82,6 +199,16 @@ export function Workspace({
         {sidebar}
       </aside>
       <section className="flex min-w-0 flex-1 flex-col overflow-hidden rounded-lg border border-slate-200 bg-white">
+        {tabs && activeTabId && onSelectTab && onCloseTab && onAddTab && onRenameTab && (
+          <TabBar
+            tabs={tabs}
+            activeId={activeTabId}
+            onSelect={onSelectTab}
+            onClose={onCloseTab}
+            onAdd={onAddTab}
+            onRename={onRenameTab}
+          />
+        )}
         <div className="min-h-0 flex-1 overflow-auto">{children}</div>
         <div className="flex items-center justify-between gap-2 border-t border-slate-100 bg-slate-50 px-3 py-1 text-[11px]">
           <span
