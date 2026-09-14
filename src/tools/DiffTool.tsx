@@ -1,9 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import CodeMirror, { EditorView } from '@uiw/react-codemirror'
+import type { ViewUpdate } from '@codemirror/view'
 import { diffField, diffTheme, setDiffLines, computeLineDiff, type DiffBlock } from '../diff'
 import { useStore } from '../store'
 import { useCursorInfo, CursorInfoView, type Status, type CursorInfo } from '../components/Workspace'
 import { Btn, Switch, createTipExtension } from '../components/widgets'
+import { useEditorSearch, SearchBar, BASIC_SETUP_WITHOUT_SEARCH } from '../components/search'
 
 const editorTip = createTipExtension([
   ['左侧粘贴原始内容，右侧粘贴待比较内容，点击「对比」高亮差异'],
@@ -23,6 +25,23 @@ export function DiffTool() {
   const [blockIndex, setBlockIndex] = useState(-1)
   const [leftCursor, onLeftUpdate] = useCursorInfo()
   const [rightCursor, onRightUpdate] = useCursorInfo()
+  const leftSearch = useEditorSearch()
+  const rightSearch = useEditorSearch()
+
+  const onLeftUpdateAll = useCallback(
+    (vu: ViewUpdate) => {
+      onLeftUpdate(vu)
+      leftSearch.onUpdate(vu)
+    },
+    [onLeftUpdate, leftSearch.onUpdate],
+  )
+  const onRightUpdateAll = useCallback(
+    (vu: ViewUpdate) => {
+      onRightUpdate(vu)
+      rightSearch.onUpdate(vu)
+    },
+    [onRightUpdate, rightSearch.onUpdate],
+  )
 
   const leftView = useRef<EditorView | null>(null)
   const rightView = useRef<EditorView | null>(null)
@@ -95,8 +114,14 @@ export function DiffTool() {
     () => [diffField, diffTheme, ...(wrap ? [EditorView.lineWrapping] : [])],
     [wrap],
   )
-  const leftExtensions = useMemo(() => [...extensions, editorTip], [extensions])
-  const rightExtensions = useMemo(() => [...extensions, editorTip], [extensions])
+  const leftExtensions = useMemo(
+    () => [...extensions, editorTip, leftSearch.extension],
+    [extensions, leftSearch.extension],
+  )
+  const rightExtensions = useMemo(
+    () => [...extensions, editorTip, rightSearch.extension],
+    [extensions, rightSearch.extension],
+  )
 
   // ── 计算差异 ──
   const computeDiff = useCallback(() => {
@@ -210,12 +235,13 @@ export function DiffTool() {
             extensions={leftExtensions}
             onChange={handleLeftChange}
             onCreateEditor={onLeftCreate}
-            onUpdate={onLeftUpdate}
+            onUpdate={onLeftUpdateAll}
             theme="light"
-            basicSetup={true}
+            basicSetup={BASIC_SETUP_WITHOUT_SEARCH}
             height="100%"
             className="h-full"
           />
+          <SearchBar search={leftSearch} />
         </DiffPane>
         <DiffPane label="待比较" status={rightStatus} count={diffRight.length} cursorInfo={rightCursor}>
           <CodeMirror
@@ -223,12 +249,13 @@ export function DiffTool() {
             extensions={rightExtensions}
             onChange={handleRightChange}
             onCreateEditor={onRightCreate}
-            onUpdate={onRightUpdate}
+            onUpdate={onRightUpdateAll}
             theme="light"
-            basicSetup={true}
+            basicSetup={BASIC_SETUP_WITHOUT_SEARCH}
             height="100%"
             className="h-full"
           />
+          <SearchBar search={rightSearch} />
         </DiffPane>
       </main>
     </>
@@ -254,7 +281,7 @@ function DiffPane({
       <div className="flex items-center border-b border-slate-100 bg-slate-50 px-3 py-1.5 text-xs font-semibold text-slate-500">
         {label}
       </div>
-      <div className="min-h-0 flex-1 overflow-auto">{children}</div>
+      <div className="relative min-h-0 flex-1 overflow-auto">{children}</div>
       <div className="flex items-center justify-between gap-2 border-t border-slate-100 bg-slate-50 px-3 py-1 text-[11px]">
         <span
           className={

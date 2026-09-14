@@ -1,9 +1,11 @@
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react'
 import CodeMirror, { EditorView } from '@uiw/react-codemirror'
+import type { ViewUpdate } from '@codemirror/view'
 import * as T from '../timestampUtils'
 import { useStore } from '../store'
 import { Workspace, SidebarBtn, SidebarGroup, SidebarToggle, useCursorInfo, type Status } from '../components/Workspace'
 import { createTipExtension } from '../components/widgets'
+import { useEditorSearch, SearchBar, BASIC_SETUP_WITHOUT_SEARCH } from '../components/search'
 
 const inputTip = createTipExtension([
   ['每行输入一个时间戳或标准时间，右侧实时输出转换结果'],
@@ -44,7 +46,7 @@ function Panel({ title, extra, children }: { title: string; extra?: ReactNode; c
         <span className="shrink-0">{title}</span>
         <div className="flex min-w-0 items-center gap-2 overflow-hidden">{extra}</div>
       </div>
-      <div className="min-h-0 flex-1 overflow-auto">{children}</div>
+      <div className="relative min-h-0 flex-1 overflow-auto">{children}</div>
     </div>
   )
 }
@@ -62,6 +64,8 @@ export function TimestampTool() {
   const [wrap, setWrap] = useState(true)
   const [now, setNow] = useState(getCurrentValues)
   const [cursorInfo, onCursorUpdate] = useCursorInfo()
+  const inputSearch = useEditorSearch()
+  const outputSearch = useEditorSearch()
 
   // 转换规则：方向 + 单位 + 时区 + 是否整段批量替换；结果随输入与规则实时重算
   const [dir, setDir] = useState<T.Direction>('auto')
@@ -70,8 +74,21 @@ export function TimestampTool() {
   const [batch, setBatch] = useState(false)
 
   const extensions = useMemo(() => [...(wrap ? [EditorView.lineWrapping] : [])], [wrap])
-  const inputExtensions = useMemo(() => [...extensions, inputTip], [extensions])
-  const outputExtensions = useMemo(() => [...extensions, outputTip], [extensions])
+  const onInputUpdate = useCallback(
+    (vu: ViewUpdate) => {
+      onCursorUpdate(vu)
+      inputSearch.onUpdate(vu)
+    },
+    [onCursorUpdate, inputSearch.onUpdate],
+  )
+  const inputExtensions = useMemo(
+    () => [...extensions, inputTip, inputSearch.extension],
+    [extensions, inputSearch.extension],
+  )
+  const outputExtensions = useMemo(
+    () => [...extensions, outputTip, outputSearch.extension],
+    [extensions, outputSearch.extension],
+  )
 
   useEffect(() => {
     const tick = () => setNow(getCurrentValues(tz))
@@ -229,12 +246,13 @@ export function TimestampTool() {
             value={tsContent}
             extensions={inputExtensions}
             onChange={setTsContent}
-            onUpdate={onCursorUpdate}
+            onUpdate={onInputUpdate}
             theme="light"
-            basicSetup={true}
+            basicSetup={BASIC_SETUP_WITHOUT_SEARCH}
             height="100%"
             className="h-full"
           />
+          <SearchBar search={inputSearch} />
         </Panel>
 
         <Panel
@@ -260,11 +278,13 @@ export function TimestampTool() {
             value={result.text}
             extensions={outputExtensions}
             editable={false}
+            onUpdate={outputSearch.onUpdate}
             theme="light"
-            basicSetup={true}
+            basicSetup={BASIC_SETUP_WITHOUT_SEARCH}
             height="100%"
             className="h-full"
           />
+          <SearchBar search={outputSearch} />
         </Panel>
       </div>
     </Workspace>

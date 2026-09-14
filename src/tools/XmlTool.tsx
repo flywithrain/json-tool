@@ -1,10 +1,12 @@
 import { useCallback, useMemo, useRef, useState } from 'react'
 import CodeMirror, { EditorView } from '@uiw/react-codemirror'
+import type { ViewUpdate } from '@codemirror/view'
 import { xml } from '@codemirror/lang-xml'
 import * as X from '../xmlUtils'
 import { useStore } from '../store'
 import { Workspace, SidebarBtn, SidebarGroup, Arrow, SidebarToggle, useCursorInfo, type Status } from '../components/Workspace'
 import { createTipExtension } from '../components/widgets'
+import { useEditorSearch, SearchBar, BASIC_SETUP_WITHOUT_SEARCH } from '../components/search'
 
 const editorTip = createTipExtension([
   ['粘贴 XML 或任意文本，使用左侧工具栏进行处理'],
@@ -35,6 +37,7 @@ export function XmlTool() {
   const [autoFormat, setAutoFormat] = useState(true)
   const justPasted = useRef(false)
   const [cursorInfo, onCursorUpdate] = useCursorInfo()
+  const search = useEditorSearch()
 
   const extensions = useMemo(
     () => [xml(), ...(wrap ? [EditorView.lineWrapping] : [])],
@@ -46,7 +49,18 @@ export function XmlTool() {
     [],
   )
 
-  const allExtensions = useMemo(() => [...extensions, editorTip, pasteHandler], [extensions, pasteHandler])
+  const onUpdate = useCallback(
+    (vu: ViewUpdate) => {
+      onCursorUpdate(vu)
+      search.onUpdate(vu)
+    },
+    [onCursorUpdate, search.onUpdate],
+  )
+
+  const allExtensions = useMemo(
+    () => [...extensions, editorTip, pasteHandler, search.extension],
+    [extensions, pasteHandler, search.extension],
+  )
 
   // ── 通用操作：对当前内容应用 fn ──
   const operate = useCallback(
@@ -183,16 +197,19 @@ export function XmlTool() {
       onAddTab={addXmlTab}
       onRenameTab={renameXmlTab}
     >
-      <CodeMirror
-        value={xmlContent}
-        extensions={allExtensions}
-        onChange={handleChange}
-        onUpdate={onCursorUpdate}
-        theme="light"
-        basicSetup={true}
-        height="100%"
-        className="h-full"
-      />
+      <div className="relative h-full">
+        <CodeMirror
+          value={xmlContent}
+          extensions={allExtensions}
+          onChange={handleChange}
+          onUpdate={onUpdate}
+          theme="light"
+          basicSetup={BASIC_SETUP_WITHOUT_SEARCH}
+          height="100%"
+          className="h-full"
+        />
+        <SearchBar search={search} />
+      </div>
     </Workspace>
   )
 }

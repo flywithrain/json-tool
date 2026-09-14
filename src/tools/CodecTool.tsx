@@ -1,9 +1,11 @@
 import { useCallback, useMemo, useState } from 'react'
 import CodeMirror, { EditorView } from '@uiw/react-codemirror'
+import type { ViewUpdate } from '@codemirror/view'
 import * as C from '../codecUtils'
 import { useStore } from '../store'
 import { Workspace, SidebarBtn, SidebarGroup, SidebarToggle, useCursorInfo, type Status } from '../components/Workspace'
 import { createTipExtension } from '../components/widgets'
+import { useEditorSearch, SearchBar, BASIC_SETUP_WITHOUT_SEARCH } from '../components/search'
 
 const editorTip = createTipExtension([
   ['粘贴文本，使用左侧工具栏进行编解码'],
@@ -18,13 +20,25 @@ export function CodecTool() {
   const [status, setStatus] = useState<Status>({ type: 'idle', text: '' })
   const [wrap, setWrap] = useState(true)
   const [cursorInfo, onCursorUpdate] = useCursorInfo()
+  const search = useEditorSearch()
 
   const extensions = useMemo(
     () => [...(wrap ? [EditorView.lineWrapping] : [])],
     [wrap],
   )
 
-  const allExtensions = useMemo(() => [...extensions, editorTip], [extensions])
+  const onUpdate = useCallback(
+    (vu: ViewUpdate) => {
+      onCursorUpdate(vu)
+      search.onUpdate(vu)
+    },
+    [onCursorUpdate, search.onUpdate],
+  )
+
+  const allExtensions = useMemo(
+    () => [...extensions, editorTip, search.extension],
+    [extensions, search.extension],
+  )
 
   // ── 通用操作：对当前内容应用 fn ──
   const operate = useCallback(
@@ -75,16 +89,19 @@ export function CodecTool() {
 
   return (
     <Workspace sidebar={sidebar} status={status} count={codecContent.length} cursorInfo={cursorInfo}>
-      <CodeMirror
-        value={codecContent}
-        extensions={allExtensions}
-        onChange={setCodecContent}
-        onUpdate={onCursorUpdate}
-        theme="light"
-        basicSetup={true}
-        height="100%"
-        className="h-full"
-      />
+      <div className="relative h-full">
+        <CodeMirror
+          value={codecContent}
+          extensions={allExtensions}
+          onChange={setCodecContent}
+          onUpdate={onUpdate}
+          theme="light"
+          basicSetup={BASIC_SETUP_WITHOUT_SEARCH}
+          height="100%"
+          className="h-full"
+        />
+        <SearchBar search={search} />
+      </div>
     </Workspace>
   )
 }
